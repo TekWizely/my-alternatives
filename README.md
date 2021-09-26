@@ -1,4 +1,4 @@
-# My-Alternatives<br/>(hacking update-alternatives to make user-scoped changes)
+# My-Alternatives<br/>(hacking update-alternatives to make local changes)
 [![MIT license](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/tekwizely/pre-commit-golang/blob/master/LICENSE)
 
 My-Alternatives is an [honest run](#_miscellany_) at allowing you to configure [Debian alternatives](https://wiki.debian.org/DebianAlternatives) that only affect your local account / shell sessions.
