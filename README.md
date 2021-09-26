@@ -1,7 +1,7 @@
 # My-Alternatives<br/>(hacking update-alternatives to make local changes)
 [![MIT license](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/tekwizely/pre-commit-golang/blob/master/LICENSE)
 
-My-Alternatives is an [honest run](#_miscellany_) at allowing you to configure [Debian alternatives](https://wiki.debian.org/DebianAlternatives) that only affect your local account / shell sessions.
+My-Alternatives is an [honest run](#miscellany) at allowing you to configure [Debian alternatives](https://wiki.debian.org/DebianAlternatives) that only affect your local account / shell sessions.
 
 **NOTES:**
 
@@ -338,7 +338,7 @@ The `tekwizely/my-alternatives` project is released under the [MIT](https://open
 
 ---
 
-###_miscellany_
+### _miscellany_
 
 <dl>
   <dt>Honest Run</dt>
