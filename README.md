@@ -292,25 +292,10 @@ $ find "${MY_ALTS_ROOT}"
 
 See the [Releases](https://github.com/TekWizely/my-alternatives/releases) page for downloadable archives of versioned releases.
 
-#### Brew Core
-TBD
+### Git
 
-#### Brew Tap
-
-In addition to working on brew core support, I have also created a tap to ensure the latest version is always available:
-
-* https://github.com/TekWizely/homebrew-tap
-
-_install my-alternatives directly from tap_
 ```
-$ brew install tekwizely/tap/my-alternatives
-```
-
-_install tap to track updates_
-```
-$ brew tap tekwizely/tap
-
-$ brew install my-alternatives
+git clone git://github.com/TekWizely/my-alternatives.git
 ```
 
 ---------------
