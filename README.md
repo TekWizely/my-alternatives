@@ -1,11 +1,11 @@
 # My-Alternatives<br/>(hacking update-alternatives to make local changes)
 [![MIT license](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/tekwizely/pre-commit-golang/blob/master/LICENSE)
 
-My-Alternatives is an [honest run](#miscellany) at allowing you to configure [Debian alternatives](https://wiki.debian.org/DebianAlternatives) that only affect your local account / shell sessions.
+My-Alternatives takes an [honest run](#miscellany) at making a useful tool to allow you to configure [Debian alternatives](https://wiki.debian.org/DebianAlternatives) that only affect your local account / shell sessions.
 
 **NOTES:**
 
-My-alternatives does not require _root / sudo_ privileges to use, as it creates and maintains user-owned _alt root_ directories where your alternative links are stored.
+My-Alternatives does not require _root / sudo_ privileges to use, as it creates and maintains user-owned _alt root_ directories that store your alternative links.
 
 **CAVEATS:**
 - Written in _Bash_
@@ -22,6 +22,7 @@ My-alternatives does not require _root / sudo_ privileges to use, as it creates 
 - Tested on:
   - `Ubuntu 20.04.3 LTS`
   - `Debian update-alternatives version 1.19.7.`
+  - `Bash 5.0.17(1)-release`
 
 #### TOC
 
@@ -41,7 +42,7 @@ My-alternatives does not require _root / sudo_ privileges to use, as it creates 
 - [Configuraing an Alternative](#configuring-an-alternative)
 - [Reverting to System Alternative](#reverting-to-system-alternative)
 
--------------------------------------
+---------------------------------------
 ### Initializing an Alt Root Directory
 
 Before you can start using my-alternatives, you need to create &amp; initialize an `alt root` directory, where your alternatives will be stored.
@@ -61,33 +62,44 @@ The command for creating and initializing a random shell-scoped alt setup is:
 $ eval "$( my-alternatives init )"
 ````
 
-_example: create &amp; init new shell-scoped (random) directory_
+**Example: create &amp; init new shell-scoped (random) directory:**
+
+_confirm not already defined_
 ```shell
-# confirm not already defined
 $ echo ${MY_ALTS_ROOT?not defined}
 
 bash: MY_ALTS_ROOT: not defined
+```
 
-# init
+_init my-alternatives_
+```shell
 $ eval "$( my-alternatives init )"
+```
 
-# confirm defined
+_confirm defined_
+```shell
 $ echo $MY_ALTS_ROOT
 
 /tmp/my-alts.abcd
+```
 
-# check contents
+_check contents_
+```shell
 $ ls -l $MY_ALTS_ROOT
 
 drwxr-xr-x  user  group  bin
 drwxr-xr-x  user  group  man
+```
 
-# check path
+_check path_
+```shell
 $ echo $PATH
 
 /tmp/my-alts.abcd/bin:...
+```
 
-# check manpath
+_check manpath_
+```shell
 $ echo $MANPATH
 
 /tmp/my-alts.abcd/man:...
@@ -104,33 +116,44 @@ The command for creating and initializing a specific alt setup is:
 $ eval "$( my-alternatives init <alt_root> )"
 ```
 
-_example: create &amp; init with `~/.my-alts`_
+**Example: create &amp; init with `~/.my-alts`:**
+
+_confirm does not exist_
 ```shell
-# confirm does not exist
 $ ls -l ~/.my-alts
 
 ls: /home/user/.my-alts: No such file or directory
+```
 
-# init
+_init my-alternatives_
+```shell
 $ eval "$( my-alternatives init ~/.my-alts )"
+```
 
-# confirm defined
+_confirm defined_
+```shell
 $ echo $MY_ALTS_ROOT
 
 /home/user/.my-alts
+```
 
-# confirm exists / check contents
+_confirm exists / check contents_
+```shell
 $ ls -l $MY_ALTS_ROOT
 
 drwxr-xr-x  user  group  bin
 drwxr-xr-x  user  group  man
+```
 
-# check path
+_check path_
+```shell
 $ echo $PATH
 
 /home/user/.my-alts/bin:...
+```
 
-# check manpath
+_check manpath_
+```shell
 $ echo $MANPATH
 
 /home/user/.my-alts/man:...
@@ -145,33 +168,44 @@ $ eval "$( my-alternatives shellenv <alt_root> )"
 
 **NOTE:** You can place this _eval_ in your `.bash_profile` to configure a default _alt root_ on each login.
 
-_example: configure previously-created `~/.my-alts`_
+**Example: configure previously-created `~/.my-alts`:**
+
+_confirm exists_
 ```shell
-# confirm exists
 $ ls -l ~/.my-alts
 
 drwxr-xr-x  user  group  bin
 drwxr-xr-x  user  group  man
+```
 
-# confirm not already defined
+_confirm not already defined_
+```shell
 $ echo ${MY_ALTS_ROOT?not defined}
 
 bash: MY_ALTS_ROOT: not defined
+```
 
-# configure
+_configure my-alternatives_
+```shell
 $ eval "$( my-alternatives shellenv ~/.my-alts )"
+```
 
-# confirm defined
+_confirm defined_
+```shell
 $ echo $MY_ALTS_ROOT
 
 /home/user/.my-alts
+```
 
-# check path
+_check path_
+```shell
 $ echo $PATH
 
 /home/user/.my-alts/bin:...
+```
 
-# check manpath
+_check manpath_
+```shell
 $ echo $MANPATH
 
 /home/user/.my-alts/man:...
@@ -188,29 +222,42 @@ This is meant to be equivelant to the `update-alernatives --config <name>` comma
 
 Any _name_ available via `update-alternatives` should be usable.
 
-_example: configure local alternative for `pager`_
-```shell
-# confirm current system value for pager
-$ which pager
-/usr/bin/pager
+**Example: configure local alternative for `pager`:**
 
+_confirm current system value for pager_
+```shell
+$ which pager
+
+/usr/bin/pager
+```
+
+_take a closer look_
+```shell
 $ ls -l /usr/bin/pager
+
 lrwxrwxrwx root root  /usr/bin/pager -> /etc/alternatives/pager
 
 $ ls -l /etc/alternatives/pager
+
 lrwxrwxrwx  root  root  /etc/alternatives/pager -> /usr/bin/less
+```
 
-# init my-alternatives
+_init my-alternatives_
+```shell
 $ eval "$( my-alternatives init ~/.my-alts )"
+```
 
-# confirm alt root dirs initialized + empty
+_confirm alt root dirs initialized + empty_
+```shell
 $ find "${MY_ALTS_ROOT}"
 
 /home/user/.my-alts
 /home/user/.my-alts/bin
 /home/user/.my-alts/man
+```
 
-# configure pager
+_configure pager_
+```shell
 $ my-alternatives config pager
 
 There are 2 choices for the alternative pager (providing ${MY_ALTS_ROOT}/bin/pager).
@@ -221,18 +268,24 @@ There are 2 choices for the alternative pager (providing ${MY_ALTS_ROOT}/bin/pag
   2            /usr/bin/less    77        system value
 
 Type selection number: 
+```
 
-# select non-system value /bin/more
+_select non-system value /bin/more_
+```shell
 ... Type selection number: 1
 
 configured local alternative for pager: /bin/more
+```
 
-# confirm updated value
+_confirm updated value_
+```shell
 $ which pager
 
 /home/user/.my-alts/bin/pager
+```
 
-# review changes to alt root
+_review changes to alt root_
+```shell
 $ find "${MY_ALTS_ROOT}"
 
 /home/user/.my-alts
@@ -241,20 +294,24 @@ $ find "${MY_ALTS_ROOT}"
 /home/user/.my-alts/man
 /home/user/.my-alts/man/man1
 /home/user/.my-alts/man/man1/pager.1.gz
+```
 
-# take a closer look
+_take a closer look_
+```shell
 $ ls -l "${MY_ALTS_ROOT}"/bin/pager "${MY_ALTS_ROOT}"/man/man1/pager.1.gz
+
 lrwxrwxrwx  user  group  /home/user/.my-alts/bin/pager -> /bin/more
 lrwxrwxrwx  user  group  /home/user/.my-alts/man/man1/pager.1.gz -> /usr/share/man/man1/more.1.gz
 ```
 
 #### Reverting to System Alternative
 
-To delete your local alternative, select the `system value` alternative from the list:
+To delete your local alternative, select the `system value` from the alternatives list:
 
-_example: revert to system alternative for `pager`_
+**Example: revert to system alternative for `pager`:**
+
+_revert to system value_
 ```shell
-# revert to system value
 $ my-alternatives config pager
 
 There are 2 choices for the alternative pager (providing ${MY_ALTS_ROOT}/bin/pager).
@@ -265,18 +322,24 @@ There are 2 choices for the alternative pager (providing ${MY_ALTS_ROOT}/bin/pag
   2            /usr/bin/less    77        system value
 
 Press <enter> to keep the current choice[*], or type selection number: 
+```
 
-# select system value /usr/bin/less
+_select system value '/usr/bin/less'_
+```shell
  ... or type selection number: 2
 
 reverted to system alternative for pager
+```
 
-# confirm system value restored
+_confirm system value restored_
+```shell
 $ which pager
 
 /usr/bin/pager
+```
 
-# review changes to alt root
+_review changes to alt root_
+```shell
 $ find "${MY_ALTS_ROOT}"
 
 /home/user/.my-alts
@@ -321,9 +384,8 @@ If you want to contact me you can reach me at TekWizely@gmail.com.
 
 The `tekwizely/my-alternatives` project is released under the [MIT](https://opensource.org/licenses/MIT) License.  See `LICENSE` file.
 
----
-
-### _miscellany_
+-----------------
+#### _miscellany_
 
 <dl>
   <dt>Honest Run</dt>
