@@ -1,11 +1,13 @@
 # My-Alternatives<br/>(hacking update-alternatives to make local changes)
 [![MIT license](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/tekwizely/pre-commit-golang/blob/master/LICENSE)
 
-My-Alternatives takes an [honest run](#miscellany) at making a useful tool to allow you to configure [Debian alternatives](https://wiki.debian.org/DebianAlternatives) that only affect your local account / shell sessions.
+My-Alternatives takes an [honest run](#miscellany) at making a useful tool to allow you to configure _alternatives_ (see: [update-alternatives](https://www.google.com/search?q=update-alternatives)) that only affect your local account / shell sessions.
 
 **NOTES:**
 
 My-Alternatives does not require _root / sudo_ privileges to use, as it creates and maintains user-owned _alt root_ directories that store your alternative links.
+
+Skip down to _[configuraing an alternative](#configuring-an-alternative)_ to see an example how this works.
 
 **CAVEATS:**
 - Written in _Bash_
@@ -20,9 +22,14 @@ My-Alternatives does not require _root / sudo_ privileges to use, as it creates 
 - Utilizes tmp files / directories
   - Sets `umask 077` for safety
 - Tested on:
-  - `Ubuntu 20.04.3 LTS`
-  - `Debian update-alternatives version 1.19.7.`
-  - `Bash 5.0.17(1)-release`
+  - Ubuntu
+    - `Ubuntu 20.04.3 LTS`
+    - `Debian update-alternatives version 1.19.7.`
+    - `Bash 5.0.17(1)-release`
+  - openSUSE
+    - `openSUSE Leap 15.3`
+    - `SUSE update-alternatives version 1.19.0.4.`
+    - `Bash 4.4.23(1)-release`
 
 #### TOC
 
