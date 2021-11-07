@@ -60,9 +60,9 @@ Below is the list of custom commands that my-alternatives implements:
 | `init`, `shellenv` | Prepare the current shell session for user-level alternatives.
 | `init-tmp`, `tmp`  | Configure the current shell session for temporary (short-lived) changes.
 | `select`, `config` | Select the active alternative for group <name>.  This is equivalent to `update-alternatives --config` with the adition of the auto-import logic.
-| `import`           | Import the alternative group <name> into the current configuration.
+| `import`           | Import an alternative group <name> into the current configuration.
 | `add`              | Add an alternative to the group <name> within the current configuration.  This is equivalent to `update-alternatives --install` but has _slightly_ different syntax.  see `my-alternatives help add` for details.
-| `rm-tmp`           | Remove the temporary configuration from the current shell session.
+| `rm-tmp`           | Remove the temporary configuration from the current shell session, making the `HOME` configuration active.
 | `version`          | Display my-alternatives version number.
 
 *NOTE:* See `my-alternatives help <command>` to learn about a specific command, including additional options.
@@ -147,7 +147,7 @@ The `tekwizely/my-alternatives` project is released under the [MIT](https://open
 ----------------
 ##### Misc Notes
 
-As of `v0.6.0`, my-alternatives is a complete re-write.  As much as possible, commands are implemented as pass-through to update-alternatives, pointing to your active configuration.
+As of `v0.6.0`, my-alternatives is a complete re-write.  As much as possible, commands are implemented as pass-through to _update-alternatives_, pointing to your active configuration.
 
 My-Alternatives does not require _root / sudo_ privileges to use, as it creates and maintains user-owned configuration directories.
 
