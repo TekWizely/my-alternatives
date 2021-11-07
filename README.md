@@ -1,7 +1,7 @@
 # My-Alternatives<br/>(hacking update-alternatives to make local changes)
 [![MIT license](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/tekwizely/pre-commit-golang/blob/master/LICENSE)
 
-My-Alternatives is a light-weight wrapper over _udpate-alternatives_, using it to make changes to user-level configurations.
+My-Alternatives is a light-weight wrapper over _update-alternatives_, using it to make changes to user-level configurations.
 
 With my-alternatives, configuring custom alternatives is as easy as:
 
@@ -71,7 +71,7 @@ Below is the list of custom commands that my-alternatives implements:
 
 Below is the list of commands that are implemented as pass-through to the related update-alternatives command:
 
-| My-Alternatives Command | Udpate-Alternatives Command
+| My-Alternatives Command | Update-Alternatives Command
 |-------------------------|----------------------------
 | `select`, `config`      | `--config`
 | `select-all`, `--config-all` | `--all`
