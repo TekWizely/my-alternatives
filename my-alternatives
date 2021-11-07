@@ -33,7 +33,7 @@ function usage() {
 		    when the default configuration is active, imports from system-level alternatives
 		    when a tmporary configuration is active, first tries the default configuration, then system-level alternatives
 		  add <name> ...
-		    adds an alternative to the group <name> within the current configuration
+		    add an alternative to the group <name> within the current configuration
 		    see 'help add' for usage details
 		  select | config <name>
 		    select the active alternative for group <name>
@@ -93,7 +93,7 @@ function main() {
 				init-tmp)
 					help_init_tmp
 					;;
-				tmp | temp | init-temp) # aliases
+				init-temp | tmp | temp) # aliases
 					help_alias "init-tmp" "$1"
 					;;
 				rm-tmp)
@@ -162,7 +162,7 @@ function main() {
 			shift
 			do_init "$@"
 			;;
-		init-tmp | tmp | temp | init-temp)
+		init-tmp | init-temp | tmp | temp)
 			shift
 			do_init_tmp "$@"
 			;;
