@@ -2,25 +2,71 @@
 set -Eeuo pipefail
 umask 077 # We use tmp files. Try to protect the user
 
-VERSION="v0.5.0"
+VERSION="v0.6.0"
 
 function usage() {
+	# Need to escape $ and \
 	cat <<-USAGE
-		my-alternatives - locally-scoped alternatives (${VERSION})
+		my-alternatives (${VERSION})
+		
+		  a wrapper for update-alternatives to enable user-level configuration.
+		  also supports temporary (per-shell) changes.
+		
 		usage:
-		  eval "\$( my-alternatives init )"
-		    create and initialize a new (random) alt root for the current shell session
-		  eval "\$( my-alternatives init <alt_root> )"
-		    create and initialize the specified alt root
-		  eval "\$( my-alternatives shellenv [alt_root] )"
-		    configure shell session for an existing my-alternatives root (ie ~/.my-alts)
-		  my-alternatives config <name>
-		    configure an alternative
-		  my-alternatives version
-		    display version number
-		  my-alternatives help <init|shellenv|config>
+		
+		  eval "\$( my-alternatives <init | shellenv> [--shell <shell>] [alt_home] )"
+		    prepare the current shell session for user-level alternatives
+		    NOTE: place this in your .profile
+		  my-alternatives <init-tmp | tmp> [tmp_dir]
+		    configure the current shell session for temporary (short-lived) changes
+		  my-alternatives <rm-tmp | rmtmp>
+		    remove the temporary configuration from the current shell session
+		  my-alternatives <command> [option ...]
+		    invoke a command
+		  my-alternatives help <command>
 		    learn more about a specific command
-
+		
+		custom commands:
+		
+		  import <name>
+		    import the alternative group <name> into the current configuration
+		    when the default configuration is active, imports from system-level alternatives
+		    when a tmporary configuration is active, first tries the default configuration, then system-level alternatives
+		  add <name> ...
+		    add an alternative to the group <name> within the current configuration
+		    see 'help add' for usage details
+		  select | config <name>
+		    select the active alternative for group <name>
+		    will first invoke 'import <name>' if the group is not already available in the current configuration
+		  version
+		    display my-alternatives version number
+		
+		renamed pass-through commands:
+		
+		  select-all | config-all
+		    invoke 'update-alternatives --all'
+		  rm-alt | rmalt
+		    invoke 'update-alternatives --remove'
+		  rm-group | rmgrp
+		    invoke 'update-alternatives --remove-all'
+		
+		    these have been renamed to reduce ambiguity
+		
+		same-name pass-through commands:
+		
+		   query | display | list | set | auto | get-selections | set-selections
+		
+		    invoke 'update-alternatives --<command>'
+		
+		update-alternatives helper commands:
+		
+		  ua [option ...]
+		    invoke 'update-alternatives [option ...]' pointing to the currently-configured alternatives
+		  ua-help
+		    invoke 'update-alternatives --help'
+		  ua-version
+		    invoke 'update-alternatives --version'
+		
 	USAGE
 	exit 2
 }
@@ -31,11 +77,7 @@ function version() {
 
 function main() {
 
-	# Bail early if no args
-	#
-	[ -z "${1:-}" ] && usage
-
-	case "${1}" in
+	case "${1:-}" in
 		-h | --help)
 			usage
 			;;
@@ -45,38 +87,149 @@ function main() {
 				init)
 					help_init
 					;;
-				shellenv)
-					help_shellenv
+				shellenv) # alias
+					help_alias "init" "$1"
 					;;
-				config)
-					help_config
+				init-tmp)
+					help_init_tmp
+					;;
+				init-temp | tmp | temp) # aliases
+					help_alias "init-tmp" "$1"
+					;;
+				rm-tmp)
+					help_rm_tmp
+					;;
+				rm-temp | rmtmp | rmtemp | remove-tmp | remove-temp | removetmp | removetemp) # aliases
+					help_alias "rm-tmp" "$1"
+					;;
+				import)
+					help_import
+					;;
+				add)
+					help_add
+					;;
+				select)
+					help_select
+					;;
+				config) # alias
+					help_alias "select" "$1"
 					;;
 				version)
 					version
 					;;
+				#
+				# renamed update-alternatives pass-through
+				#
+				select-all | config-all)
+					help_passthrough "all" "$1"
+					;;
+				rm-alt | rmalt | remove-alt | removealt)
+					help_passthrough "remove" "$1"
+					;;
+				rm-group | rmgroup | rm-grp | rmgrp | remove-group | removegroup | remove-grp | removegrp)
+					help_passthrough "remove-all" "$1"
+					;;
+				#
+				# update-alternatives pass-through
+				#
+				query | display | list | set | auto | get-selections | set-selections)
+					help_passthrough "$1"
+					;;
+				#
+				# update-alternatives helpers
+				#
+				ua)
+					help_update_alternatives
+					;;
+				ua-help)
+					help_update_alternatives_help
+					;;
+				ua-version)
+					help_update_alternatives_version
+					;;
 				*)
-					usage
+					if [ -z "${1:-}" ]; then
+						printf "usage: help <command>\n" >&2
+					else
+						printf "error: unrecognized command: %s\n" "${1}" >&2
+					fi
+					printf "\nsee 'my-alternatives --help' for list of commands\n" >&2
+					exit 2
 					;;
 			esac
 			;;
-		init)
+		init | shellenv)
 			shift
 			do_init "$@"
 			;;
-		shellenv)
+		init-tmp | init-temp | tmp | temp)
 			shift
-			do_shellenv "$@"
+			do_init_tmp "$@"
 			;;
-		config)
+		rm-tmp | rm-temp | rmtmp | rmtemp | remove-tmp | remove-temp | removetmp | removetemp)
 			shift
-			do_config "$@"
+			do_rm_tmp "$@"
+			;;
+		import)
+			shift
+			do_import "$@"
+			;;
+		add)
+			shift
+			do_add "$@"
+			;;
+		select | config)
+			shift
+			do_select "$@"
 			;;
 		version)
 			version
 			;;
+		#
+		# renamed update-alternatives pass-through
+		#
+		select-all | config-all)
+			shift
+			do_update_alternatives "--all" "$@"
+			;;
+		rm-alt | rmalt | remove-alt | removealt)
+			shift
+			do_update_alternatives "--remove" "$@"
+			;;
+		rm-group | rmgroup | rm-grp | rmgrp | remove-group | removegroup | remove-grp | removegrp)
+			shift
+			do_update_alternatives "--remove-all" "$@"
+			;;
+		#
+		# update-alternatives pass-through
+		#
+		query | display | list | set | auto | get-selections | set-selections)
+			local cmd="${1}"
+			shift
+			do_update_alternatives "--${cmd}" "$@"
+			;;
+		#
+		# update-alternatives helpers
+		#
+		ua)
+			shift
+			do_update_alternatives "$@"
+			;;
+		ua-help)
+			shift
+			command update-alternatives --help "$@"
+			;;
+		ua-version)
+			shift
+			command update-alternatives --version "$@"
+			;;
 		*)
-			printf "my-alternatives: error: unrecognized command: %s\n" "${1}" >&2
-			printf "use 'my-alternatives --help' for usage\n" >&2
+			if [ -z "${1:-}" ]; then
+				printf "usage: my-alternatives <command> [option ...]\n" >&2
+			else
+				printf "error: unrecognized command: %s\n" "${1}" >&2
+			fi
+			printf "\nsee 'my-alternatives --help' for list of commands\n" >&2
 			exit 2
 			;;
 	esac
@@ -84,37 +237,49 @@ function main() {
 
 function help_init() {
 	cat <<-'USAGE'
-		usage: eval "$(my-alternatives init [--shell <shell>] [alt_root])"
-
-		  Creates and initializes an alt root.
-
-		  When [alt_root] is NOT provided, uses 'mktemp' to generate a
-		  temporary directory.
-
-		  Stores the alt root value in MY_ALTS_ROOT
-
-		  Initializes the alt root via:
-		     mkdir -p "${MY_ALTS_ROOT}/bin" "${MY_ALTS_ROOT}/man"
-
-		  Finally, configures PATH, and MANPATH.
-
-		  When [--shell <shell>] is NOT provided, checks $SHELL.
+		usage: eval "$( my-alternatives <init | shellenv> [--shell <shell>] [alt_home] )"
+		
+		  prepares the current shell session for user-level alternatives.
+		
+		  if [alt_home] is provided, it will be configured as MY_ALTS_HOME
+		
+		  when [alt_home] is NOT provided, the following logic will be used determine MY_ALTS_HOME:
+		
+		    * check if $MY_ALTS_HOME already defined
+		    * check $XDG_CONFIG_HOME. if present, use $XDG_CONFIG_HOME/my-alternatives
+		    * finally default to ~/.config/my-alternatives
+		
+		  when [--shell <shell>] is NOT provided, checks $SHELL.
+		
 		  NOTE: Currently only 'bash' is supported.
-
+		
+		  creates the MY_ALTS_HOME directory and required sub-directories if they don't already exist.
+		
+		  finally, configures PATH and MANPATH.
+		
 		example:
-
-		  $ my-alternatives init
-
-		  export MY_ALTS_ROOT="/tmp/my-alts.abcd"
-		  export PATH="${MY_ALTS_ROOT}/bin${PATH:+:$PATH}"
-		  export MANPATH="${MY_ALTS_ROOT}/man:${MANPATH:-}"
-
+		
+		  # prepare shell with default MY_ALTS_HOME logic
+		  # NOTE: you can place this in your .profile
+		  $ eval "$( command my-alternatives init )"
+		
+		  # <ALT_HOME> = ~/.config/my-alternatives
+		  export MY_ALTS_HOME="<ALT_HOME>"
+		  export PATH="<ALT_HOME>/bin${PATH:+:$PATH}"
+		  export MANPATH="<ALT_HOME>/man:${MANPATH:-}"
+		
+		more info:
+		
+		  see 'my-alternatives --help' to learn more about configuring your own alternatives.
+		
+		  see 'update-alternatives --help' or 'man update-alternatives' to learn more about alternatives.
+		
 	USAGE
 	exit 2
 }
 
 function do_init() {
-	local alt_root shell
+	local alt_home shell
 	while (($#)); do
 		case "${1}" in
 			--shell)
@@ -128,18 +293,17 @@ function do_init() {
 				shift 2
 				;;
 			*)
-				# If alt_root already defined
+				# If alt_home already defined
 				#
-				if [ -n "${alt_root:-}" ]; then
+				if [ -n "${alt_home:-}" ]; then
 					printf "my-alternatives: error: unrecognized option: %s.  see 'my-alternatives help init' for usage\n" "${1}" >&2
 					exit 2
 				fi
-				alt_root="${1}"
+				alt_home="${1}"
 				shift
 				;;
 		esac
 	done
-
 	# If --shell not provided, check $SHELL
 	#
 	if [ -z "${shell:-}" ]; then
@@ -152,679 +316,708 @@ function do_init() {
 	# Confirm shell supported
 	#
 	if [[ "${shell}" != "bash" ]]; then
-		printf "my-alternatives: error: unrecognized shell: %s.  see 'my-alternatives help init' for usage\n" "${1}" >&2
+		printf "my-alternatives: error: unrecognized shell: %s.  see 'my-alternatives help init' for usage\n" "${shell}" >&2
 		exit 2
 	fi
-
-	if [ -z "${alt_root:-}" ]; then
-		if ! alt_root="$(command mktemp -q -d -t my-alts.XXXXXXXX)"; then
-			printf "my-alternatives: error: could not create alt_root\n" >&2
-			exit 2
-		fi
-	fi
-	# Make dirs - If error, warn but continue
 	#
-	if ! command mkdir -p "${alt_root}/bin" "${alt_root}/man"; then
-		printf "my-alternatives: warning: could not initialize alt_root: %s\n" "${alt_root}" >&2
-	fi
-	unset MY_ALTS_ROOT
-	do_shellenv "--shell" "${shell}" "${alt_root}"
+	# set MY_ALTS_HOME from specified alt_home or default logic
+	#
+	MY_ALTS_HOME="${alt_home:-${MY_ALTS_HOME:-${XDG_CONFIG_HOME:-${HOME:?}/.config}/my-alternatives}}"
+	# print assignment seperately as I don't want to escape ALL the other $ :)
+	#
+	printf '_MY_ALTS_HOME="%s"\n' "${MY_ALTS_HOME:?}"
+ 	# path clean up adapted from: https://stackoverflow.com/a/2108540/1822537
+ 	#
+	cat <<-'INIT'
+		if [ -n "${_MY_ALTS_HOME}:-" ] && command mkdir -p -- "${_MY_ALTS_HOME}"; then
+		    command mkdir -p -- "${_MY_ALTS_HOME}/bin"
+		    command mkdir -p -- "${_MY_ALTS_HOME}/man"
+		    command mkdir -p -- "${_MY_ALTS_HOME}/man/man"{1..9}
+		    command mkdir -p -- "${_MY_ALTS_HOME}/admin"
+		    command mkdir -p -- "${_MY_ALTS_HOME}/alts"
+		    # clean up PATH and add to front
+		    PATH=":${PATH:-}:"
+		    PATH="${PATH/":${_MY_ALTS_HOME}/bin:"/:}"
+		    PATH="${PATH%:}"
+		    PATH="${PATH#:}"
+		    PATH="${_MY_ALTS_HOME}/bin${PATH:+:$PATH}"
+		    # clean up MANPATH and add to front
+		    MANPATH=":${MANPATH:-}:"
+		    MANPATH="${MANPATH/":${_MY_ALTS_HOME}/man:"/:}"
+		    MANPATH="${MANPATH%:}"
+		    MANPATH="${MANPATH#:}"
+		    MANPATH="${_MY_ALTS_HOME}/man:${MANPATH:-}"
+		    # add helper function
+		    my-alternatives() {
+		        case "${1:-}" in
+		            # some commands require eval
+		            init     | shellenv | \
+		            init-tmp | tmp      | temp   | init-temp  | \
+		            rm-temp  | rmtmp    | rmtemp | remove-tmp | remove-temp | removetmp | removetemp)
+		                eval "$( command my-alternatives "$@" )"
+		                ;;
+		            *)
+		            command my-alternatives "$@"
+		                ;;
+		        esac
+		    }
+		    # finally, export home variable
+		    command export MY_ALTS_HOME="${_MY_ALTS_HOME}"
+		fi
+		command unset _MY_ALTS_HOME
+	INIT
 }
 
-function help_shellenv() {
+function help_init_tmp() {
 	cat <<-'USAGE'
-		usage: eval "$(my-alternatives shellenv [--shell <shell>] [alt_root])"
-
-		  Configures the current session for an existing alt root.
-		  You provide it the alt root location, and it then updates
-		  MY_ALTS_ROOT, PATH, and MANPATH.
-
-		  This can be handy if you want a long-lived (multi-shell-session)
-		  root.
-
-		  When [alt_root] is NOT provided, checks $MY_ALTS_ROOT.
-
-		  When [--shell <shell>] is NOT provided, checks $SHELL.
-		  NOTE: Currently only 'bash' is supported.
-
+		usage: my-alternatives <init-tmp | tmp> [tmp_dir]
+		
+		  configures the current shell session for temporary (short-lived) changes.
+		
+		  if [tmp_dir] is provided, it will be configured as MY_ALTS_TMP
+		
+		  when [tmp_dir] is NOT provided, the following logic will be used determine MY_ALTS_TMP:
+		
+		    * check if $MY_ALTS_TMP already defined
+		    * check XDG_CACHE_HOME. if present, use XDG_CACHE_HOME/my-alternatives/<RANDOM>
+		    * finally default to ~/.config/my-alternatives/<RANDOM>
+		
+		  creates the MY_ALTS_TMP directory and required sub-directories if they don't already exist.
+		
+		  finally, configures PATH and MANPATH.
+		
 		example:
-
-		  # Create a long-lived alt root in your home folder
-		  $ my-alternatives shellenv ~/.my-alts
-
-		  export MY_ALTS_ROOT="/home/user/.my-alts"
-		  export PATH="${MY_ALTS_ROOT}/bin${PATH:+:$PATH}"
-		  export MANPATH="${MY_ALTS_ROOT}/man:${MANPATH:-}"
-
-		you can also set MY_ALTS_ROOT manually and have my-alternatives use it:
-
-		  # If no value provided, checks $MY_ALTS_ROOT
-		  $ export MY_ALTS_ROOT=~/.my-alts
-		  $ my-alternatives shellenv
-
-		  # notice: MY_ALTS_ROOT already defined : /home/user/.my-alts
-		  export PATH="${MY_ALTS_ROOT}/bin${PATH:+:$PATH}"
-		  export MANPATH="${MY_ALTS_ROOT}/man:${MANPATH:-}"
-
+		
+		  $ my-alternatives init-tmp
+		
+		  # <ALT_TMP> = ~/.config/my-alternatives/abcd123
+		  export MY_ALTS_TMP="<ALT_TMP>"
+		  export PATH="<ALT_TMP>/bin${PATH:+:$PATH}"
+		  export MANPATH="<ALT_TMP>/man:${MANPATH:-}"
+		
+		more info:
+		
+		  see 'my-alternatives --help' to learn more about configuring your own alternatives.
+		
+		  see 'update-alternatives --help' or 'man update-alternatives' to learn more about alternatives.
+		
 	USAGE
 	exit 2
 }
 
-function do_shellenv() {
-	local alt_root shell
+function do_init_tmp() {
+	# Ensure alt_home configured
+	#
+	if [ -z "${MY_ALTS_HOME:-}" ]; then
+		printf "my-alternatives: error: shell session not confgured. see 'my-alternatives --help' for usage\n" >&2
+		exit 2
+	fi
+	local alt_tmp
 	while (($#)); do
 		case "${1}" in
-			--shell)
-				if [ -z "${2:-}" ]; then
-					printf "my-alternatives: error: no value provided for --shell option. see 'my-alternatives help shellenv' for usage\n" >&2
-					exit 2
-				fi
-				# basename as a courtesy in case they use $SHELL/etc
-				#
-				shell="$(basename "${2}")"
-				shift 2
-				;;
 			*)
 				# If alt_root already defined
 				#
-				if [ -n "${alt_root:-}" ]; then
-					printf "my-alternatives: error: unrecognized option: %s.  see 'my-alternatives help shellenv' for usage\n" "${1}" >&2
+				if [ -n "${alt_tmp:-}" ]; then
+					printf "my-alternatives: error: unrecognized option: %s.  see 'my-alternatives help init-tmp' for usage\n" "${1}" >&2
 					exit 2
 				fi
-				alt_root="${1}"
+				alt_tmp="${1}"
 				shift
 				;;
 		esac
 	done
-
-	# If --shell not provided, check $SHELL
+	# create temp folder if no alt_tmp or MY_ALTS_TMP given
 	#
-	if [ -z "${shell:-}" ]; then
-		shell="$(basename "${SHELL:-}")"
-		if [ -z "${shell}" ]; then
-			printf "my-alternatives: error: Unable to determine shell.  see 'my-alternatives help shellenv' for usage\n" >&2
-			exit 2
+	MY_ALTS_TMP="${alt_tmp:-${MY_ALTS_TMP:-}}"
+	if [ -z "${MY_ALTS_TMP}" ]; then
+		while :; do
+			MY_ALTS_TMP="${XDG_CACHE_HOME:-"${HOME:?}/.cache"}/my-alternatives/${RANDOM}${RANDOM}"
+			[ -d "${MY_ALTS_TMP}" ] || break
+		done
+	fi
+	# print assignment seperately as I don't want to escape ALL the other $ :)
+	#
+	printf '_MY_ALTS_TMP="%s"\n' "${MY_ALTS_TMP:?}"
+	cat <<-'TMP'
+		if [ -n "${_MY_ALTS_TMP}:-" ] && command mkdir -p -- "${_MY_ALTS_TMP}"; then
+		    command mkdir -p -- "${_MY_ALTS_TMP}/bin"
+		    command mkdir -p -- "${_MY_ALTS_TMP}/man"
+		    command mkdir -p -- "${_MY_ALTS_TMP}/man/man"{1..9}
+		    command mkdir -p -- "${_MY_ALTS_TMP}/admin"
+		    command mkdir -p -- "${_MY_ALTS_TMP}/alts"
+		    # clean up PATH and add to front
+		    PATH=":${PATH:-}:"
+		    PATH="${PATH/":${_MY_ALTS_TMP}/bin:"/:}"
+		    PATH="${PATH%:}"
+		    PATH="${PATH#:}"
+		    PATH="${_MY_ALTS_TMP}/bin${PATH:+:$PATH}"
+		    # clean up MANPATH and add to front
+		    MANPATH=":${MANPATH:-}:"
+		    MANPATH="${MANPATH/":${_MY_ALTS_TMP}/man:"/:}"
+		    MANPATH="${MANPATH%:}"
+		    MANPATH="${MANPATH#:}"
+		    MANPATH="${_MY_ALTS_TMP}/man:${MANPATH:-}"
+		    # finally, export tmp variable
+		    command export MY_ALTS_TMP="${_MY_ALTS_TMP}"
 		fi
-	fi
-	# Confirm shell supported
-	#
-	if [[ "${shell}" != "bash" ]]; then
-		printf "my-alternatives: error: unrecognized shell: %s.  see 'my-alternatives help shellenv' for usage\n" "${1}" >&2
-		exit 2
-	fi
-
-	if [ -n "${alt_root:-}" ]; then
-		if [[ "${alt_root}" == "${MY_ALTS_ROOT:-}" ]]; then
-			printf '# my-alternatives: notice: MY_ALTS_ROOT already defined: %s (Re-exporting for completeness)\n' "${MY_ALTS_ROOT}"
-		else
-			MY_ALTS_ROOT="${alt_root}"
-		fi
-	else
-		if [[ -z "${MY_ALTS_ROOT:-}" ]]; then
-			printf "my-alternatives: error: MY_ALTS_ROOT not defined or provided.  see 'my-alternatives help' for usage\n" >&2
-			exit 2
-		else
-			printf '# my-alternatives: notice: MY_ALTS_ROOT already defined: %s (Re-exporting for completeness)\n' "${MY_ALTS_ROOT}"
-		fi
-	fi
-	# If we make it here, we intend to export MY_ALTS_ROOT
-	#
-	printf 'export MY_ALTS_ROOT="%s"\n' "${MY_ALTS_ROOT}"
-	if [ ! -d "${MY_ALTS_ROOT}" ]; then
-		printf "# my-alternatives: warning: MY_ALTS_ROOT directory does not (yet) exist: %s\n" "${MY_ALTS_ROOT}" # STDOUT
-	fi
-	#
-	# bin
-	#
-	if is_dir_in_path "${PATH}" "${MY_ALTS_ROOT}/bin"; then
-		printf "# my-alternatives: notice: MY_ALTS_ROOT/bin already in PATH\n"
-	else
-		# shellcheck disable=SC2016 # don't want to expand expression
-		printf 'export PATH="${MY_ALTS_ROOT}/bin${PATH:+:$PATH}"\n'
-	fi
-	if [ ! -d "${MY_ALTS_ROOT}/bin" ]; then
-		printf "# my-alternatives: warning: MY_ALTS_ROOT/bin directory does not (yet) exist: %s\n" "${MY_ALTS_ROOT}/bin" # STDOUT
-	fi
-	#
-	# man
-	#
-	if is_dir_in_path "${MANPATH:-}" "${MY_ALTS_ROOT}/man"; then
-		printf "# notice: MY_ALTS_ROOT/man already in MANPATH\n"
-	else
-		# shellcheck disable=SC2016 # don't want to expand expression
-		printf 'export MANPATH="${MY_ALTS_ROOT}/man:${MANPATH:-}"\n'
-	fi
-	if [ ! -d "${MY_ALTS_ROOT}/man" ]; then
-		printf "# my-alternatives: warning: MY_ALTS_ROOT/man directory does not (yet) exist: %s\n" "${MY_ALTS_ROOT}/man" # STDOUT
-	fi
-	#
-	# my-alternatives function
-	# TODO Probably need a more portable technique for for the path check
-	#
-	cat <<-'FUNCTION'
-		my-alternatives() {
-		    command my-alternatives "$@"
-		    local code=$?
-		    if [[ $code -ge 125 ]]; then
-		        export PATH="${PATH}"
-		        code=$(( code - 125 ))
-		    fi
-		    return $code
-		}
-	FUNCTION
+		command unset _MY_ALTS_TMP
+	TMP
 }
 
-function help_config() {
+function help_rm_tmp() {
 	cat <<-'USAGE'
-		usage: my-alternatives config <name>
-
-		  Configures an alternative within the current MY_ALTS_ROOT.
-		  Any <name> available via update-alternatives should be usable.
-
-		this is meant to be a locally-scoped equivilent to:
-
-		  $ update-alternatives --config <name>
-
-		my-alternatives invokes the following command to get information for <name>:
-
-		  $ update-alternatives --query <name>
-
-		see 'my-alternatives help' to learn more about configuring MY_ALTS_ROOT
-
+		usage: my-alternatives rm-tmp
+		
+		  removes the temporary configuration from the current shell session.
+		
+		  restores the curent session to the default user-level alternatives.
+		
+		  removes the temporary directory referenced by MY_ALTS_TMP
+		
+		  removes MY_ALTS_TMP from both PATH and MANPATH
+		
+		  finall, unsets the MY_ALTS_TMP variable
+		
+		more info:
+		
+		  see 'my-alternatives --help' to learn more about creating a temporary configuration.
+		
+		  see 'update-alternatives --help' or 'man update-alternatives' to learn more about alternatives.
+		
 	USAGE
 	exit 2
 }
 
-function do_config() {
+function do_rm_tmp() {
+	# Ensure alt_home configured
+	#
+	if [ -z "${MY_ALTS_HOME:-}" ]; then
+		printf "my-alternatives: error: shell session not confgured. see 'my-alternatives --help' for usage\n" >&2
+		exit 2
+	fi
+	# No arguments expected
+	#
+	if [ -n "${1:-}" ]; then
+		printf "my-alternatives: error: unrecognized option: %s.  see 'my-alternatives help rm-tmp' for usage\n" "${1}" >&2
+		exit 2
+	fi
+	cat <<-'RMTMP'
+		if [ -n "${MY_ALTS_TMP:-}" ]; then
+		    # clean up temp dir
+		    if [ -d "${MY_ALTS_TMP}" ]; then
+		        command rm -rf "${MY_ALTS_TMP}/"
+		    fi
+		    # clean up PATH
+		    PATH=":${PATH:-}:"
+		    PATH="${PATH/":${MY_ALTS_TMP}/bin:"/:}"
+		    PATH="${PATH%:}"
+		    PATH="${PATH#:}"
+		    # clean up MANPATH
+		    MANPATH=":${MANPATH:-}:"
+		    MANPATH="${MANPATH/":${MY_ALTS_TMP}/man:"/:}"
+		    MANPATH="${MANPATH%:}"
+		    MANPATH="${MANPATH#:}"
+		fi
+		# finally, clean up tmp variable
+		command unset MY_ALTS_TMP
+	RMTMP
+}
 
+function help_import() {
+	cat <<-'USAGE'
+		usage: my-alternatives import <name>
+		
+		  imports an alternative group into the currently-configured alternatives.
+		
+		  when the default alternatives (ie. MY_ALTS_HOME) are active:
+		    * tries to import from the system-level alternatives
+		
+		  when temporary alternatives (i.e MY_ALTS_TMP) are active:
+		    * first tries to import from the default alternatives
+		    * finally tries to import from the system-level alternatives
+		
+		more info:
+		
+		  see 'my-alternatives --help' to learn more about configuring your own alternatives.
+		
+		  see 'update-alternatives --help' or 'man update-alternatives' to learn more about alternatives.
+		
+	USAGE
+	exit 2
+}
+
+function do_import() {
+	# Ensure alt_home configured
+	#
+	if [ -z "${MY_ALTS_HOME:-}" ]; then
+		printf "my-alternatives: error: shell session not confgured. see 'my-alternatives --help' for usage\n" >&2
+		exit 2
+	fi
+	local alt_root="${MY_ALTS_TMP:-${MY_ALTS_HOME}}"
+	local name
+	while (($#)); do
+		case "${1}" in
+			*)
+				# If name already defined
+				#
+				if [ -n "${name:-}" ]; then
+					printf "my-alternatives: error: unrecognized option: %s.  see 'my-alternatives help import' for usage\n" "${1}" >&2
+					exit 2
+				fi
+				name="${1}"
+				shift
+				;;
+		esac
+	done
 	# No name argument
 	#
-	if [[ -z "${1:-}" ]]; then
-		printf "my-alternatives: error: no name provided. see 'my-alternatives help config' for usage\n" >&2
+	if [[ -z "${name:-}" ]]; then
+		printf "my-alternatives: error: no name provided. see 'my-alternatives help import' for usage\n" >&2
 		exit 1
 	fi
-
-	# No alt root defined
+	# Create temp file
 	#
-	if [ -z "${MY_ALTS_ROOT:-}" ]; then
-		printf "my-alternatives: error: MY_ALTS_ROOT not defined\n" >&2
-		exit 2
-	fi
-
-	# Alt root not found
-	#
-	if [ ! -d "${MY_ALTS_ROOT}" ]; then
-		printf "my-alternatives: error: MY_ALTS_ROOT folder not found: %s\n" "${MY_ALTS_ROOT}" >&2
-		exit 2
-	fi
-
 	local alt_tmp
-	if ! alt_tmp="$(command mktemp -q -t "my-alts-{$1}-query.XXXXXXXX")"; then
-		printf "my-alternatives: error: error fetching alternative description: unable to create temp file\n" >&2
+	if ! alt_tmp="$(command mktemp -q -t "my-alts-${name}-query.XXXXXXXX")"; then
+		printf "my-alternatives: error: unable to create temp file\n" >&2
 		exit 2
 	fi
+	# sanity check
+	if [ ! -f "${alt_tmp}" ]; then
+		printf "my-alternatives: error: unable to create temp file\n" >&2
+		exit 2
+	fi
+	local from # for status message
+	# If tmp is active try import from home
+	#
+	if [ "${alt_root}" = "${MY_ALTS_TMP:-}" ]; then
+		# does NOT exit on error - checks alt_tmp for success
+		command update-alternatives \
+			--altdir "${MY_ALTS_HOME}/alts" --admindir "${MY_ALTS_HOME}/admin" \
+			--query "${name}" \
+			>"${alt_tmp}" 2>/dev/null || true
 
-	if ! command update-alternatives --query "$1" >"${alt_tmp}"; then
-		printf "my-alternatives: error: error fetching alternative description: error from update-alternatives\n" >&2
+		if [ -s "${alt_tmp}" ]; then
+			from="MY_ALTS_HOME: ${MY_ALTS_HOME}" # for status message
+		fi
+	fi
+	if [ ! -s "${alt_tmp}" ]; then
+		# final fallback = update-alternatives default
+		# exits on error
+		command update-alternatives --query "${name}" >"${alt_tmp}"
+		from="system-level alternative" # for status message
+	fi
+	# final sanity check
+	#
+	if [ -z "${alt_tmp}" ]; then
+		printf "my-alternatives: error: unable to locate alternative group with name %s\n" "${name}" >&2
 		rm "${alt_tmp}"
 		exit 2
 	fi
 
-	parse_alt "${alt_tmp}"
+	alt_parse_query "${alt_tmp}" || return $?
+	rm "${alt_tmp}"
 
-	if [[ "${STATE}" != "MAYBE_ALT_START" && "${STATE}" != "MAYBE_ALT_SLAVE_ENTRY" ]]; then
-		printf "my-alternatives: error: error parsing alternative description\n" >&2
-		exit 2
-	fi
-
-	if [ -z "${TARGET_LINK}" ]; then
+	if [ -z "${ALT_GROUP_LINK}" ]; then
 		printf "my-alternatives: error: unable to determine provided location\n" >&2
 		exit 2
 	fi
 
-	SHALT_LINK_REL_PATH="$(get_my_alt_rel_path "${TARGET_LINK}")"
-	SHALT_VALUE=
-	SHALT_LINK="${MY_ALTS_ROOT}${SHALT_LINK_REL_PATH}"
-	if [[ -e "${SHALT_LINK}" && -L "${SHALT_LINK}" ]]; then
-		SHALT_VALUE=$(command readlink "${SHALT_LINK}")
+	printf "importing alternative group %s%s from %s\n" "${ALT_GROUP_NAME}" "${ALT_GROUP_STATUS:+" in ${ALT_GROUP_STATUS} mode"}" "${from}"
+
+	local alt_group_link_rel
+	alt_group_link_rel="$(get_my_alt_rel_path "${ALT_GROUP_LINK}")"
+	if [ "${alt_group_link_rel}" == "${ALT_GROUP_LINK}" ]; then
+		printf "my-alternatives: error: unable to determine relative path for primary link: %s\n" "${ALT_GROUP_LINK}" >&2
+		exit 2
 	fi
-
-	# declare -p  \
-	# TARGET_NAME \
-	# TARGET_LINK \
-	# TARGET_SLAVE_NAMES \
-	# TARGET_SLAVE_LINKS \
-	# TARGET_BEST \
-	# TARGET_BEST_PRIORITY \
-	# TARGET_VALUE \
-	# SHALT_LINK \
-	# SHALT_VALUE \
-	# ALT_VALUES \
-	# MAX_VALUE_LEN \
-	# ALT_PRIORITIES \
-	# MAX_PRIORITY_LEN \
-	# ALT_SLAVE_NAMES \
-	# ALT_SLAVE_VALUES
-
-	print_options
-
-	local option path
-
-	if [ -n "${SHALT_SELECTED}" ]; then
-		printf "\nPress <enter> to keep the current choice[*], or type selection number: "
-	else
-		printf "\nType selection number: "
-	fi
-
-	command read -r option
-
-	local path_modified=0
-	if [[ "${option}" =~ ^[0-9]+$ && $option -gt 0 && $option -le ${#ALT_VALUES[@]} ]]; then
-		option=$((option - 1)) # 1-based input but 0-based processing
-		SHALT_VALUE="${ALT_VALUES[$option]}"
-		if [[ "${TARGET_VALUE}" == "${SHALT_VALUE}" || -z "${SHALT_SELECTED}" || $option -ne $SHALT_SELECTED ]]; then
-			if [ -e "${SHALT_VALUE}" ]; then
-				# From here forward, path's *could* be modified
-				#
-				# Delete primary link
-				#
-				if [ -L "${SHALT_LINK}" ]; then
-					command rm "${SHALT_LINK}"
-					path_modified=125
-				fi
-				# Delete slave links
-				#
-				local slave_link my_alt_slave_link my_alt_link_dir
-				for slave_link in "${TARGET_SLAVE_LINKS[@]}"; do
-					slave_rel_path="$(get_my_alt_rel_path "${slave_link}")"
-					if [ -n "${slave_rel_path}" ]; then
-						my_alt_slave_link="${MY_ALTS_ROOT}${slave_rel_path}"
-						if [ -L "${my_alt_slave_link}" ]; then
-							command rm "${my_alt_slave_link}"
-							path_modified=125
-						fi
-					fi
-				done
-				# Only process IF selected is NOT current system value
-				#
-				if [[ "${TARGET_VALUE}" != "${SHALT_VALUE}" ]]; then
-					#
-					# If we get here, we intend to create primary + slave links
-					#
-
-					# Warn if manpath not found
-					#
-					if ! command -v manpath &>/dev/null; then
-						printf "my-alternatives: warning: command 'manpath' not found. alternative man pages may not be configured correctly.\n" >&2
-					fi
-
-					# Create primary link
-					#
-					my_alt_link_dir="${SHALT_LINK}"
-					if [ -f "${SHALT_VALUE}" ]; then
-						my_alt_link_dir="$(dirname "${my_alt_link_dir}")"
-					elif [ ! -d "${SHALT_VALUE}" ]; then
-						printf "my-alternatives: error: unable to determine provided location type (file, dir, etc): %s\n" "${SHALT_VALUE}" >&2
-						exit $(( 2 + path_modified ))
-					fi
-					if ! command mkdir -p "${my_alt_link_dir}"; then
-						printf "my-alternatives: error: unable to create parent folder for my-alternatives link: %s\n" "${SHALT_LINK}" >&2
-						exit $(( 2 + path_modified ))
-					fi
-					# Link the file
-					#
-					command ln -s "${SHALT_VALUE}" "${SHALT_LINK}"
-					path_modified=125
-					if [[ "$(get_my_alt_rel_path "${SHALT_LINK}")" != "${SHALT_LINK_REL_PATH}" ]]; then
-						printf "my-alternatives: warning: you may need to update paths in order to access my-alternatives file: \${MY_ALTS_ROOT}%s\n" "${SHALT_LINK_REL_PATH}" >&2
-					fi
-					# Create slave links
-					#
-					local i slave_link slave_link_dir slave_name slave_rel_path
-					local slave_alt_names_str slave_alt_names slave_alt_values_str slave_alt_values
-					i=0
-					# declare -p i
-					while [[ $i -lt ${#TARGET_SLAVE_NAMES[@]} ]]; do
-						slave_name="${TARGET_SLAVE_NAMES[$i]}"
-						slave_link="${TARGET_SLAVE_LINKS[$i]}"
-						slave_rel_path="$(get_my_alt_rel_path "${slave_link}")"
-						# declare -p slave_name slave_link slave_rel_path
-						if [ -n "${slave_rel_path}" ]; then
-							# shellcheck disable=SC2034 # Variable is used by reference
-							slave_alt_names_str="${ALT_SLAVE_NAMES[$option]}"
-							# shellcheck disable=SC2034 # Variable is used by reference
-							slave_alt_values_str="${ALT_SLAVE_VALUES[$option]}"
-							deserialize_array slave_alt_names_str slave_alt_names
-							deserialize_array slave_alt_values_str slave_alt_values
-
-							# declare -p slave_alt_names slave_alt_values
-
-							# Find slave for name
-							#
-							local n slave_value
-							slave_value=
-							n=0
-							while [[ $n -lt ${#slave_alt_names[@]} ]]; do
-								if [[ "${slave_name}" == "${slave_alt_names[$n]}" ]]; then
-									# Found it!
-									#
-									slave_value="${slave_alt_values[$n]}"
-									break
-								fi
-								n=$((n + 1))
-							done
-							# Did we find a slave value?
-							#
-							if [[ -n "${slave_value}" ]]; then
-								# Create slave link
-								#
-								my_alt_slave_link="${MY_ALTS_ROOT}${slave_rel_path}"
-								slave_link_dir="${my_alt_slave_link}"
-								if [ -f "${slave_value}" ]; then
-									slave_link_dir="$(dirname "${slave_link_dir}")"
-								elif [ ! -d "${slave_value}" ]; then
-									printf "my-alternatives: error: unable to determine provided location type (file, dir, etc): %s\n" "${slave_value}" >&2
-									exit $(( 2 + path_modified ))
-								fi
-								if ! command mkdir -p "${slave_link_dir}"; then
-									printf "my-alternatives: warning: unable to create parent folder for my-alternatives link: %s\n - skipping" "${slave_link}" >&2
-									continue
-								fi
-								# Link the file
-								#
-								command ln -s "${slave_value}" "${my_alt_slave_link}"
-								path_modified=125
-								if [[ "$(get_my_alt_rel_path "${my_alt_slave_link}")" != "${slave_rel_path}" ]]; then
-									printf "my-alternatives: warning: you may need to update paths in order to access my-alternatives file: \${MY_ALTS_ROOT}%s\n" "${slave_rel_path}" >&2
-								fi
-							else
-								printf "my-alternatives: warning: unable to determine slave value for %s\n" "${slave_name} - skipping" >&2
-							fi
-						else
-							printf "my-alternatives: warning: Unable to determine type (bin/man/etc) for %s\n" "${slave_name} @ ${slave_link} - skipping" >&2
-						fi
-						i=$((i + 1))
-					done
-						printf "\nconfigured local alternative for %s: %s\n" "${1}" "${SHALT_VALUE}"
-				else
-					printf "\nreverted to system alternative for %s\n" "${1}"
-				fi
+	ALT_GROUP_LINK="${alt_root}${alt_group_link_rel}"
+	local a=0
+	while [[ $a -lt ${#ALT_GROUP_VALUES[@]} ]]; do
+		local alt_value="${ALT_GROUP_VALUES[$a]}"
+		local alt_priority="${ALT_GROUP_PRIORITIES[$a]}"
+		local child_args=()
+		local s=0
+		while [[ $s -lt ${#ALT_GROUP_SLAVE_NAMES[@]} ]]; do
+			local child_name="${ALT_GROUP_SLAVE_NAMES[$s]}"
+			local child_link="${ALT_GROUP_SLAVE_LINKS[$s]}"
+			local child_link_rel
+			child_link_rel="$(get_my_alt_rel_path "${child_link}")"
+			if [ "${child_link_rel}" == "${child_link}" ]; then
+				printf " !!! warning: Unable to determine type (bin/man/etc) for %s\n" "${child_name} @ ${child_link} - skipping" >&2
 			else
-				printf "my-alternatives: error: path not found: %s\n" "${SHALT_VALUE}" >&2
-				exit $(( 1 + path_modified ))
-			fi
-		fi
-	fi
-	return $(( 0 + path_modified ))
-}
-
-function print_options() {
-	printf "There are %d choices for the alternative %s (providing \${MY_ALTS_ROOT}%s).\n" ${#ALT_VALUES[@]} "${TARGET_NAME}" "${SHALT_LINK_REL_PATH}"
-	if [[ ${#ALT_VALUES[@]} -gt 0 ]]; then
-		local i path priority status selected path_pad my_alt_selected
-		path_pad=$(((((MAX_VALUE_LEN + 3) / 4) * 4) - 1))
-		printf "\n"
-		printf "%1s %-9s    %-${path_pad}s %-10s %s\n" " " "Selection" "Path" "Priority" "Status"
-		printf "%s\n" "------------------------------------------------------------"
-		SHALT_SELECTED=
-		i=1
-		while [[ $i -le ${#ALT_VALUES[@]} ]]; do
-			selected=" "
-			my_alt_selected=" "
-			status=""
-			path="${ALT_VALUES[${i} - 1]}"
-			if [ ! -e "${path}" ]; then
-				status="not found"
-			elif [[ "${TARGET_VALUE}" == "${path}" ]]; then
-				status="system value"
-			fi
-			priority="${ALT_PRIORITIES[${i} - 1]}"
-			if [[ "${TARGET_VALUE}" == "${path}" ]]; then
-				# shellcheck disable=SC2034 # Use if tracking update-alternative values
-				ALT_SELECTED=$i
-				if [[ "${TARGET_STATUS}" == "manual" ]]; then
-					# shellcheck disable=SC2034 # Use if tracking update-alternative values
-					selected="*"
+				child_link="${alt_root}${child_link_rel}"
+				local child_value_ref="ALT_GROUP_VALUE_${a}_SLAVE_${s}_VALUE"
+				local child_value="${!child_value_ref}"
+				# Did we find a child value?
+				#
+				if [[ -n "${child_value}" ]]; then
+					child_args+=("--slave" "${child_link}" "${child_name}" "${child_value}")
+				else
+					printf " !!! warning: Unable to determine type (bin/man/etc) for %s\n" "${child_name} @ ${child_link} - skipping" >&2
 				fi
 			fi
-			if [[ "${SHALT_VALUE}" == "${path}" ]]; then
-				SHALT_SELECTED=$((i - 1)) # Adjust for 0-based check later
-				my_alt_selected="*"
-			fi
-			printf "%1s %-9s    %-${path_pad}s  %-9s %s\n" "${my_alt_selected}" "${i}" "${path}" "${priority}" "${status}"
-			i=$((i + 1))
+			((s += 1))
 		done
+
+		printf " ... importing alternative %s with priority %s\n" "${alt_value}" "${alt_priority}"
+		command update-alternatives \
+			--altdir "${alt_root}/alts" --admindir "${alt_root}/admin" \
+			--install "${ALT_GROUP_LINK}" "${ALT_GROUP_NAME}" "${alt_value}" "${alt_priority}" \
+			"${child_args[@]}" \
+			>/dev/null || return $?
+
+		((a += 1))
+	done
+	# Set current value if manual mode
+	#
+	if [ "${ALT_GROUP_STATUS}" = "manual" ] && [ ! "${ALT_GROUP_CURRENT_VALUE:-none}" = "none" ]; then
+		printf " ... marking %s as active alternative\n" "${ALT_GROUP_CURRENT_VALUE}"
+		command update-alternatives \
+			--altdir "${alt_root}/alts" --admindir "${alt_root}/admin" \
+			--set "${ALT_GROUP_NAME}" "${ALT_GROUP_CURRENT_VALUE}" \
+			>/dev/null || return $?
 	fi
+	# finished
+	printf "\n"
+}
+
+function help_add() {
+	cat <<-'USAGE'
+		usage: my-alternatives add <group-name> <group-path> <alt-path> <alt-priority> [--child <group-name> <group-path> <alt-path>]...
+		
+		  adds an alternative to a group within the currently-configured alternatives.
+		  The group is created if it does not already exist.
+		
+		  NOTE: This is generally a pass-through to 'update-alternatives --install', BUT the argument syntax is slightly diffrent:
+		
+		    * the order of <group_name> and <group_path> arguments are inverted
+		    * uses --child (vs --slave) for secondary files
+		
+		options:
+		
+		  <group-name>
+		     the name of the alternative group.
+		     used when referring to the group in other commands.
+		     the name must be unique within the currently-configured alternatives.
+		     ex: pager
+		     ex: pager.1.gz
+		
+		  <group-path>
+		     path provided by the group.
+		     path should be relative.
+		     ex: bin/pager
+		     ex: man/man1/pager.1.gz
+		
+		  <alt-path>
+		     the path of the alternative being introduced.
+		     ex: /usr/bin/less
+		     ex: /usr/share/man/man1/less.1.gz
+		
+		  <alt-priority>
+		     priority of this alternative.
+		     alternatives with larger values have higher priority in automatic mode.
+		
+		  --child <group-name> <group-path> <alt-path>
+		     adds a secondary entry.
+		     optional, but if given, all arguments are required.
+		
+		more info:
+		
+		  see 'my-alternatives --help' to learn more about configuring your own alternatives.
+		
+		  see 'update-alternatives --help' or 'man update-alternatives' to learn more about the '--install' command.
+		
+	USAGE
+	exit 2
+}
+
+function do_add() {
+	# Ensure alt_home configured
+	#
+	if [ -z "${MY_ALTS_HOME:-}" ]; then
+		printf "my-alternatives: error: shell session not confgured. see 'my-alternatives --help' for usage\n" >&2
+		exit 2
+	fi
+	local alt_root="${MY_ALTS_TMP:-${MY_ALTS_HOME}}"
+	# Build update-alternatives --install args
+	#
+	local args=("--install")
+	local providing_name providing_path
+	# primary group-name
+	#
+	if [ -z "${1:-}" ]; then
+		printf "my-alternatives: error: primary group-name not provided. see 'my-alternatives help add' for usage\n" >&2
+		exit 1
+	fi
+	providing_name="${1}"
+	shift
+	# primary group-path
+	#
+	if [ -z "${1:-}" ]; then
+		printf "my-alternatives: error: primary group-path not provided. see 'my-alternatives help add' for usage\n" >&2
+		exit 1
+	fi
+	if [[ "${1}" =~ ^/(bin|man)/ ]]; then
+		providing_path="${alt_root}${1}"
+	elif [[ "${1}" =~ ^(bin|man)/ ]]; then
+		providing_path="${alt_root}/${1}"
+	else
+		local group_path
+		group_path="$(get_my_alt_rel_path "${1}")"
+		if [ "${group_path}" == "${1}" ]; then
+			printf "my-alternatives: error: unable to determine relative path for group-path: %s\n" "${group_path}" >&2
+			exit 2
+		fi
+		providing_path="${alt_root}${group_path}"
+	fi
+	shift
+
+	# add to args (inverted)
+	args+=("${providing_path}" "${providing_name}")
+
+	# primary alt-path
+	#
+	if [ -z "${1:-}" ]; then
+		printf "my-alternatives: error: primary alt-path not provided. see 'my-alternatives help add' for usage\n" >&2
+		exit 1
+	fi
+	args+=("${1}")
+	shift
+	# alt-priority
+	#
+	if [ -z "${1:-}" ]; then
+		printf "my-alternatives: error: alt-priority not provided. see 'my-alternatives help install' for usage\n" >&2
+		exit 1
+	fi
+	args+=("${1}")
+	shift
+	# secondary entries
+	#
+	while [ -n "${1:-}" ]; do
+		if [[ "${1}" != "--child" ]]; then
+			printf "my-alternatives: error: unrecognized option: %s.  see 'my-alternatives help add' for usage\n" "${1}" >&2
+			exit 2
+		fi
+		args+=("--slave")
+		shift
+		# secondary group-name
+		#
+		if [ -z "${1:-}" ]; then
+			printf "my-alternatives: error: secondary group-name not provided. see 'my-alternatives help add' for usage\n" >&2
+			exit 1
+		fi
+		providing_name="${1}"
+		shift
+		# secondary group-path
+		#
+		if [ -z "${1:-}" ]; then
+			printf "my-alternatives: error: secondary group-path not provided. see 'my-alternatives help add' for usage\n" >&2
+			exit 1
+		fi
+		if [[ "${1}" =~ ^/(bin|man)/ ]]; then
+			providing_path="${alt_root}${1}"
+		elif [[ "${1}" =~ ^(bin|man)/ ]]; then
+			providing_path="${alt_root}/${1}"
+		else
+			local group_path
+			group_path="$(get_my_alt_rel_path "${1}")"
+			if [ "${group_path}" == "${1}" ]; then
+				printf "my-alternatives: error: unable to determine relative path for group-path: %s\n" "${group_path}" >&2
+				exit 2
+			fi
+			providing_path="${alt_root}${group_path}"
+		fi
+		shift
+
+		# add to args (inverted)
+		args+=("${providing_path}" "${providing_name}")
+
+		# secondary alt-path
+		#
+		if [ -z "${1:-}" ]; then
+			printf "my-alternatives: error: secondary alt-path not provided. see 'my-alternatives help add' for usage\n" >&2
+			exit 1
+		fi
+		args+=("${1}")
+		shift
+	done
+	command update-alternatives \
+		--altdir "${alt_root}/alts" --admindir "${alt_root}/admin" \
+		"${args[@]}" \
+		>/dev/null || return $?
+}
+
+function help_select() {
+	cat <<-'USAGE'
+		usage: my-alternatives <select | config> <name>
+		
+		  shows alternatives for the group <name> and asks the user to select which one to use.
+		
+		  calls 'import <name>' if the group is not present in the currently-configured alternatives.
+		
+		more info:
+		
+		  see 'my-alternatives --help' to learn more about the 'import' command.
+		
+		  see 'update-alternatives --help' or 'man update-alternatives' to learn more about the '--config' command.
+		
+	USAGE
+	exit 2
+}
+
+function do_select() {
+	# Ensure alt_home configured
+	#
+	if [ -z "${MY_ALTS_HOME:-}" ]; then
+		printf "my-alternatives: error: shell session not confgured. see 'my-alternatives --help' for usage\n" >&2
+		exit 2
+	fi
+	local alt_root="${MY_ALTS_TMP:-${MY_ALTS_HOME}}"
+	# No name argument
+	#
+	if [[ -z "${1:-}" ]]; then
+		printf "my-alternatives: error: no name provided. see 'my-alternatives help select' for usage\n" >&2
+		exit 1
+	fi
+	# need to import?
+	#
+	if ! alt_exists "${1}"; then
+		do_import "${1}" || return $?
+	fi
+	command update-alternatives \
+		--altdir "${alt_root}/alts" --admindir "${alt_root}/admin" \
+		"--config" "${1}"
 }
 
 ##
-# parse_alt
+# help_alias
+# Generates help text for the various command aliases
 #
-# $1 = file to read from (can be process sub)
+# $1 = command
+# $2 = alias
 #
-# example:
-#
-#    parse_alt <( update-alternatives --query pager )
-#
-function parse_alt() {
-	STATE="NAME"
-	# local lineno
-	# lineno=0 # 1 on first use
-	while IFS="" read -r LINE || [ -n "${LINE}" ]; do
-		# ((lineno += 1))
-		# echo "#LINE NO          : ${lineno}"
-		# echo "#LINE TEXT        : '${LINE}'"
-		# echo "#STATE            : ${STATE}"
-		# echo "#STATES           : $(declare -p STATES)"
-		# echo "#STATEMENT_INDENTS: $(declare -p STATEMENT_INDENTS)"
-		# echo "#TEXT_INDENTS     : $(declare -p TEXT_INDENTS)"
-		# echo "#PRINT_INDENTS    : $(declare -p PRINT_INDENTS)"
-		# echo -e "#>> ----------------\n"
-		state_"${STATE}" "${LINE}"
-	done <"${1}"
-}
-
-NAME_REGEX="^Name: (.+)$"
-function state_NAME() {
-	if [[ "${1}" =~ $NAME_REGEX ]]; then
-		TARGET_NAME="${BASH_REMATCH[1]}"
-	else
-		printf "unable to parse target name: %s\n" "${1}"
-		exit 2
-	fi
-	STATE="LINK"
-}
-
-LINK_REGEX="^Link: (.+)$"
-function state_LINK() {
-	if [[ "${1}" =~ $LINK_REGEX ]]; then
-		TARGET_LINK="${BASH_REMATCH[1]}"
-	else
-		printf "unable to parse target link: %s\n" "${1}"
-		exit 2
-	fi
-	STATE="SLAVES_HEADER"
-}
-
-function state_SLAVES_HEADER() {
-	if [[ ! "${1}" =~ ^Slaves:$ ]]; then
-		printf "unable to parse target slaves header: %s\n" "${1}"
-		exit 2
-	fi
-	STATE="SLAVE_ENTRY"
-}
-
-TARGET_SLAVE_NAMES=()
-TARGET_SLAVE_LINKS=()
-SLAVE_REGEX="^ ([^ ]+) (.+)$"
-function state_SLAVE_ENTRY() {
-	if [[ "${1}" =~ $SLAVE_REGEX ]]; then
-		TARGET_SLAVE_NAMES+=("${BASH_REMATCH[1]}")
-		TARGET_SLAVE_LINKS+=("${BASH_REMATCH[2]}")
-		# Leave status unchanged
-	else
-		STATE="STATUS"
-		state_"${STATE}" "${1}"
-	fi
-}
-
-STATUS_REGEX="^Status: (.+)$"
-function state_STATUS() {
-	if [[ "${1}" =~ $STATUS_REGEX ]]; then
-		TARGET_STATUS="${BASH_REMATCH[1]}"
-	else
-		printf "unable to parse target status: %s\n" "${1}"
-		exit 2
-	fi
-	STATE="BEST"
-}
-
-BEST_REGEX="^Best: (.+)$"
-function state_BEST() {
-	if [[ "${1}" =~ $BEST_REGEX ]]; then
-		# shellcheck disable=SC2034 # Use if tracking update-alternative values
-		TARGET_BEST="${BASH_REMATCH[1]}"
-	else
-		printf "unable to parse target best: %s\n" "${1}"
-		exit 2
-	fi
-	STATE="VALUE"
-}
-
-VALUE_REGEX="^Value: (.+)$"
-function state_VALUE() {
-	if [[ "${1}" =~ $VALUE_REGEX ]]; then
-		TARGET_VALUE="${BASH_REMATCH[1]}"
-	else
-		printf "unable to parse target value: %s\n" "${1}"
-		exit 2
-	fi
-	STATE="MAYBE_ALT_START"
-}
-
-function state_MAYBE_ALT_START() {
-	if [[ "${1}" != "" ]]; then
-		printf "unable to parse target alt blank: %s\n" "${1}"
-		exit 2
-	fi
-	STATE="ALT_VALUE"
-}
-
-ALT_VALUES=()
-MAX_VALUE_LEN=0
-ALT_SLAVE_NAMES=()
-ALT_SLAVE_VALUES=()
-ALT_VALUE_REGEX="^Alternative: (.+)$"
-function state_ALT_VALUE() {
-	if [[ "${1}" =~ $ALT_VALUE_REGEX ]]; then
-		ALT_VALUES+=("${BASH_REMATCH[1]}")
-		if [[ ${#BASH_REMATCH[1]} -gt ${MAX_VALUE_LEN} ]]; then
-			MAX_VALUE_LEN=${#BASH_REMATCH[1]}
-		fi
-		ALT_SLAVE_NAMES+=("")
-		ALT_SLAVE_VALUES+=("")
-	else
-		printf "unable to parse alternative value: %s\n" "${1}"
-		exit 2
-	fi
-	STATE="ALT_PRIORITY"
-}
-
-ALT_PRIORITIES=()
-MAX_PRIORITY_LEN=0
-ALT_PRIORITY_REGEX="^Priority: ([0-9]+)$"
-function state_ALT_PRIORITY() {
-	if [[ "${1}" =~ $ALT_PRIORITY_REGEX ]]; then
-		ALT_PRIORITIES+=("${BASH_REMATCH[1]}")
-		if [[ ${#BASH_REMATCH[1]} -gt ${MAX_PRIORITY_LEN} ]]; then
-			MAX_PRIORITY_LEN=${#BASH_REMATCH[1]}
-		fi
-		if [[ "${ALT_VALUES[${#ALT_VALUES[@]} - 1]}" == "${TARGET_BEST}" ]]; then
-			# shellcheck disable=SC2034 # Use if tracking update-alternatives values
-			TARGET_BEST_PRIORITY="${BASH_REMATCH[1]}"
-		fi
-	else
-		printf "unable to parse alternative priority: %s\n" "${1}"
-		exit 2
-	fi
-	STATE="ALT_SLAVES_HEADER"
-}
-
-function state_ALT_SLAVES_HEADER() {
-	if [[ ! "${1}" =~ ^Slaves:$ ]]; then
-		printf "unable to parse alternative slaves header: %s\n" "${1}"
-		exit 2
-	fi
-	STATE="MAYBE_ALT_SLAVE_ENTRY"
-}
-
-function state_MAYBE_ALT_SLAVE_ENTRY() {
-	if [[ "${1}" =~ $SLAVE_REGEX ]]; then
-		local idx slave_names_str slave_names slave_values_str slave_values
-		idx=$((${#ALT_VALUES[@]} - 1))
-		slave_names_str=${ALT_SLAVE_NAMES[$idx]}
-		slave_values_str=${ALT_SLAVE_VALUES[$idx]}
-		deserialize_array slave_names_str slave_names
-		deserialize_array slave_values_str slave_values
-
-		slave_names+=("${BASH_REMATCH[1]}")
-		slave_values+=("${BASH_REMATCH[2]}")
-		serialize_array slave_names slave_names_str
-		serialize_array slave_values slave_values_str
-		ALT_SLAVE_NAMES[$idx]="${slave_names_str}"
-		ALT_SLAVE_VALUES[$idx]="${slave_values_str}"
-		# Leave status unchanged
-	else
-		STATE="MAYBE_ALT_START"
-		state_"${STATE}" "${1}"
-	fi
+function help_alias() {
+	# Need to escape $ and \
+	cat <<-USAGE
+		${2} is an alias for the '${1}' command.
+		
+		see 'my-alternatives help ${1}' for usage.
+		
+	USAGE
+	exit 2
 }
 
 ##
-# serialize_array
-# Serializes a bash array to a string, with a configurable seperator.
+# help_passthrough
+# Generates help text for the various pass-through commands
 #
-# $1 = source varname ( contains array to be serialized )
-# $2 = target varname ( will contian the serialized string )
-# $3 = seperator ( optional, defaults to $'\x01' )
+# $1 = update-alternatives command
+# $2 = my-alternatives command (optional)
 #
-# example:
-#
-#    my_arry=( one "two three" four )
-#    serialize_array my_array my_string '|'
-#    declare -p my_string
-#
-# result:
-#
-#    declare -- my_string="one|two three|four"
-#
-function serialize_array() {
-	declare -n _array="${1}" _str="${2}" # _array, _str => local reference vars
-	local IFS="${3:-$'\x01'}"
-	# shellcheck disable=SC2034 # Reference vars assumed used by caller
-	_str="${_array[*]}" # * => join on IFS
+function help_passthrough() {
+	# Need to escape $ and \
+	cat <<-USAGE
+		usage: my-alternatives ${2:-${1}} [option ...]
+		
+		  invokes update-alternatives --${1} pointing to the currently-configured alternatives.
+		
+		  all options are passed through, unmodified.
+		
+		this is equivilent to:
+		
+		  # <ALT_ROOT>="\${MY_ALTS_TMP:-\${MY_ALTS_HOME}}"
+		  update-alternatives --altdir "<ALT_ROOT>/alts" --admindir "<ALT_ROOT>/admin" --${1} [option ...]
+		
+		more info:
+		
+		  see 'update-alternatives --help' or 'man update-alternatives' to learn more about the '--${1}' command.
+		
+	USAGE
+	exit 2
+}
+
+function help_update_alternatives_help() {
+	cat <<-'USAGE'
+		usage: my-alternatives ua-help
+		
+		convenience command for invoking:
+		
+		  update-alternatives --help
+		
+	USAGE
+	exit 2
+}
+
+function help_update_alternatives_version() {
+	cat <<-'USAGE'
+		usage: my-alternatives ua-version
+		
+		convenience command for invoking:
+		
+		  update-alternatives --version
+		
+	USAGE
+	exit 2
+}
+
+function help_update_alternatives() {
+	cat <<-'USAGE'
+		usage: my-alternatives ua [option ...]
+		
+		  invokes update-alternatives pointing to the currently-configured alternatives.
+		
+		  all options are passed through, unmodified.
+		
+		this is equivilent to:
+		
+		  # <ALT_ROOT>="\${MY_ALTS_TMP:-\${MY_ALTS_HOME}}"
+		  update-alternatives --altdir "<ALT_ROOT>/alts" --admindir "<ALT_ROOT>/admin" [option ...]
+		
+		more info:
+		
+		  see 'my-alternatives --help' to learn more about configuring your own alternatives.
+		
+		  see 'update-alternatives --help' or 'man update-alternatives' to learn more about alternatives.
+		
+	USAGE
+	exit 2
+}
+
+function do_update_alternatives() {
+	# Ensure alt_home configured
+	#
+	if [ -z "${MY_ALTS_HOME:-}" ]; then
+		printf "my-alternatives: error: shell session not confgured. see 'my-alternatives --help' for usage\n" >&2
+		exit 2
+	fi
+	local alt_root="${MY_ALTS_TMP:-${MY_ALTS_HOME}}"
+	# Invoke update-alternatives
+	#
+	command update-alternatives \
+		--altdir "${alt_root}/alts" \
+		--admindir "${alt_root}/admin" \
+		"$@"
 }
 
 ##
-# deserialize_array
-# Deserializes a string into a bash array, with a configurable seperator.
+# alt_exists
+# Checks if a named alt exists in the specified alt root
+# $1 = alt_root - assumed to exist
+# $1 = name
 #
-# $1 = source varname ( contains string to be deserialized )
-# $2 = target varname ( will contain the deserialized array )
-# $3 = seperator ( optional, defaults to $'\x01' )
+# returns 0 if exist 1 otherwise
 #
-# example:
-#
-#    my_string="one|two three|four"
-#    deserialize_array my_string my_array '|'
-#    declare -p my_array
-#
-# result:
-#
-#    declare -a my_array=([0]="one" [1]="two three" [2]="four")
-#
-function deserialize_array() {
-	IFS="${3:-$'\x01'}" read -r -a "${2}" <<<"${!1}" # -a => split on IFS
+function alt_exists() {
+	local list
+	# TODO This can likely be simplified
+	if list="$(do_update_alternatives --list "${1}" 2>/dev/null || true)"; then
+		if [ -n "${list}" ]; then
+			return 0
+		fi
+	fi
+	return 1
 }
 
 ##
@@ -888,8 +1081,246 @@ function get_my_alt_rel_path() {
 	printf "%s" "$1"
 }
 
+# ##############################################################################
+# BEGIN alternatives_parse_query.bash v1.0.0
+#       https://gist.github.com/TekWizely/f14c787fd7ecf7719d2963265a6e7d08
+# ##############################################################################
+
+##
+# alt_parse_query - Parses the output of 'update-alternatives --query'
+#
+# $1 = file to read from (can be process sub)
+# $2 = debug|trace
+#
+# example:
+#
+#    alt_parse_query <( update-alternatives --query pager )
+#
+function alt_parse_query() {
+	# Reset global vars
+	#
+	ALT_GROUP_LINK=
+	ALT_GROUP_NAME=
+	ALT_GROUP_SLAVE_NAMES=()
+	ALT_GROUP_SLAVE_LINKS=()
+	ALT_GROUP_STATUS= # auto | manual
+	ALT_GROUP_CURRENT_VALUE=
+	ALT_GROUP_CURRENT_INDEX=
+	ALT_GROUP_BEST_VALUE=
+	ALT_GROUP_BEST_INDEX=
+	ALT_GROUP_VALUES=()
+	ALT_GROUP_PRIORITIES=()
+	# TODO Consider moving to serialized arrays for slave values
+	#ALT_GROUP_VALUE_${v}_SLAVE_${s}_VALUE
+
+	_ALT_PARSE_QUERY_STATE="NAME"
+	local IFS line lineno=0 # 1 on first use
+	while IFS="" read -r line || [ -n "${line}" ]; do
+		((lineno += 1))
+		if [ "${2:-}" == "trace" ]; then
+			printf "# line NO  : %s\n" "${lineno}"
+			printf "# line TEXT: '%s'\n" "${line}"
+			printf "# state    : %s\n" "${_ALT_PARSE_QUERY_STATE}"
+			printf "#  ---------\n"
+		fi
+		# Returns on !0 return code from state functions
+		#
+		_alt_parse_query_state_"${_ALT_PARSE_QUERY_STATE}" "${line}" || return $?
+	done <"${1}"
+	# Final state should be one of "eof candidate" states
+	#
+	if [ ! "${_ALT_PARSE_QUERY_STATE}" = "MAYBE_ALT_START" ] && [ ! "${_ALT_PARSE_QUERY_STATE}" = "MAYBE_ALT_SLAVES_HEADER" ] && [ ! "${_ALT_PARSE_QUERY_STATE}" = "MAYBE_ALT_SLAVE_ENTRY" ]; then
+		printf "unexpected parse state: %s\n" "${_ALT_PARSE_QUERY_STATE}" >&2
+		return 2
+	fi
+	if [ "${2:-}" == "trace" ] || [ "${2:-}" == "debug" ]; then
+		printf "ALT_GROUP_NAME         : %s\n" "${ALT_GROUP_NAME}"
+		printf "ALT_GROUP_LINK         : %s\n" "${ALT_GROUP_LINK}"
+		printf "ALT_GROUP_SLAVE_NAMES  : %s\n" "${ALT_GROUP_SLAVE_NAMES[*]}"
+		printf "ALT_GROUP_SLAVE_LINKS  : %s\n" "${ALT_GROUP_SLAVE_LINKS[*]}"
+		printf "ALT_GROUP_STATUS       : %s\n" "${ALT_GROUP_STATUS}"
+		printf "ALT_GROUP_CURRENT_VALUE: %s\n" "${ALT_GROUP_CURRENT_VALUE}"
+		printf "ALT_GROUP_CURRENT_INDEX: %s\n" "${ALT_GROUP_CURRENT_INDEX}"
+		printf "ALT_GROUP_BEST_VALUE   : %s\n" "${ALT_GROUP_BEST_VALUE}"
+		printf "ALT_GROUP_BEST_INDEX   : %s\n" "${ALT_GROUP_BEST_INDEX}"
+		printf "ALT_GROUP_VALUES       : %s\n" "${ALT_GROUP_VALUES[*]}"
+		printf "ALT_GROUP_PRIORITIES   : %s\n" "${ALT_GROUP_PRIORITIES[*]}"
+		local v=0
+		while [[ $v -lt ${#ALT_GROUP_VALUES[@]} ]]; do
+			local s=0
+			while [[ $s -lt ${#ALT_GROUP_SLAVE_NAMES[@]} ]]; do
+				local alt_slave_value_ref="ALT_GROUP_VALUE_${v}_SLAVE_${s}_VALUE"
+				printf "${alt_slave_value_ref} : %s\n" "${!alt_slave_value_ref}"
+				((s += 1))
+			done
+			((v += 1))
+		done
+	fi
+}
+
+function _alt_parse_query_state_NAME() {
+	local regex="^Name: (.+)$"
+	if [[ "${1}" =~ $regex ]]; then
+		ALT_GROUP_NAME="${BASH_REMATCH[1]}"
+		_ALT_PARSE_QUERY_STATE="LINK"
+	else
+		printf "unable to parse Name field: %s\n" "${1}" >&2
+		return 2
+	fi
+}
+
+function _alt_parse_query_state_LINK() {
+	local regex="^Link: (.+)$"
+	if [[ "${1}" =~ $regex ]]; then
+		ALT_GROUP_LINK="${BASH_REMATCH[1]}"
+		_ALT_PARSE_QUERY_STATE="MAYBE_SLAVES_HEADER"
+	else
+		printf "unable to parse Link field: %s\n" "${1}" >&2
+		return 2
+	fi
+}
+
+function _alt_parse_query_state_MAYBE_SLAVES_HEADER() {
+	if [[ "${1}" =~ ^Slaves:$ ]]; then
+		_ALT_PARSE_QUERY_STATE="SLAVE_ENTRY"
+	else
+		_ALT_PARSE_QUERY_STATE="STATUS"
+		_alt_parse_query_state_"${_ALT_PARSE_QUERY_STATE}" "${1}"
+	fi
+}
+
+function _alt_parse_query_state_SLAVE_ENTRY() {
+	local regex="^ ([^ ]+) (.+)$"
+	if [[ "${1}" =~ $regex ]]; then
+		ALT_GROUP_SLAVE_NAMES+=("${BASH_REMATCH[1]}")
+		ALT_GROUP_SLAVE_LINKS+=("${BASH_REMATCH[2]}")
+		# Leave status unchanged
+	else
+		_ALT_PARSE_QUERY_STATE="STATUS"
+		_alt_parse_query_state_"${_ALT_PARSE_QUERY_STATE}" "${1}"
+	fi
+}
+
+function _alt_parse_query_state_STATUS() {
+	local regex="^Status: (.+)$"
+	if [[ "${1}" =~ $regex ]]; then
+		ALT_GROUP_STATUS="${BASH_REMATCH[1]}"
+		_ALT_PARSE_QUERY_STATE="BEST"
+	else
+		printf "unable to parse Status field: %s\n" "${1}" >&2
+		return 2
+	fi
+}
+
+function _alt_parse_query_state_BEST() {
+	local regex="^Best: (.+)$"
+	if [[ "${1}" =~ $regex ]]; then
+		ALT_GROUP_BEST_VALUE="${BASH_REMATCH[1]}"
+		_ALT_PARSE_QUERY_STATE="VALUE"
+	else
+		printf "unable to parse Best field: %s\n" "${1}" >&2
+		return 2
+	fi
+}
+
+function _alt_parse_query_state_VALUE() {
+	local regex="^Value: (.+)$"
+	if [[ "${1}" =~ $regex ]]; then
+		ALT_GROUP_CURRENT_VALUE="${BASH_REMATCH[1]}"
+		_ALT_PARSE_QUERY_STATE="MAYBE_ALT_START"
+	else
+		printf "unable to parse Value field: %s\n" "${1}" >&2
+		return 2
+	fi
+}
+
+# eof candidate
+function _alt_parse_query_state_MAYBE_ALT_START() {
+	if [[ "${1}" != "" ]]; then
+		printf "expecting blank line to start an alternative entry: %s\n" "${1}" >&2
+		return 2
+	fi
+	_ALT_PARSE_QUERY_STATE="ALT_VALUE"
+}
+
+function _alt_parse_query_state_ALT_VALUE() {
+	local regex="^Alternative: (.+)$"
+	if [[ "${1}" =~ $regex ]]; then
+		local alt_value="${BASH_REMATCH[1]}"
+		local alt_index=${#ALT_GROUP_VALUES[@]} # assign before += for 0-based value
+		ALT_GROUP_VALUES+=("${alt_value}")
+		# best alt index
+		#
+		if [ "${alt_value}" == "${ALT_GROUP_BEST_VALUE}" ]; then
+			ALT_GROUP_BEST_INDEX=$alt_index
+		fi
+		# current alt index
+		#
+		if [ "${alt_value}" == "${ALT_GROUP_CURRENT_VALUE}" ]; then
+			ALT_GROUP_CURRENT_INDEX=$alt_index
+		fi
+		_ALT_PARSE_QUERY_STATE="ALT_PRIORITY"
+	else
+		printf "unable to parse Alternative value field: %s\n" "${1}" >&2
+		return 2
+	fi
+}
+
+function _alt_parse_query_state_ALT_PRIORITY() {
+	local regex="^Priority: ([0-9]+)$"
+	if [[ "${1}" =~ $regex ]]; then
+		ALT_GROUP_PRIORITIES+=("${BASH_REMATCH[1]}")
+		_ALT_PARSE_QUERY_STATE="MAYBE_ALT_SLAVES_HEADER"
+	else
+		printf "unable to parse alternative Priority field: %s\n" "${1}" >&2
+		return 2
+	fi
+}
+
+# eof candidate
+function _alt_parse_query_state_MAYBE_ALT_SLAVES_HEADER() {
+	if [[ "${1}" =~ ^Slaves:$ ]]; then
+		_ALT_PARSE_QUERY_STATE="MAYBE_ALT_SLAVE_ENTRY"
+	else
+		_ALT_PARSE_QUERY_STATE="MAYBE_ALT_START"
+		_alt_parse_query_state_"${_ALT_PARSE_QUERY_STATE}" "${1}"
+	fi
+}
+
+# eof candidate
+function _alt_parse_query_state_MAYBE_ALT_SLAVE_ENTRY() {
+	local regex="^ ([^ ]+) (.+)$"
+	if [[ "${1}" =~ $regex ]]; then
+		local slave_name="${BASH_REMATCH[1]}"
+		local slave_value="${BASH_REMATCH[2]}"
+		local slave_name_index=
+		local i=0
+		while [[ $i -lt ${#ALT_GROUP_SLAVE_NAMES[@]} ]]; do
+			if [ "${ALT_GROUP_SLAVE_NAMES[$i]}" == "${slave_name}" ]; then
+				slave_name_index=$i
+				break
+			fi
+			i=$((i + 1))
+		done
+		# find it?
+		if [ -n "${slave_name_index}" ]; then
+			local alt_index=$((${#ALT_GROUP_VALUES[@]} - 1))
+			local slave_value_ref="ALT_GROUP_VALUE_${alt_index}_SLAVE_${slave_name_index}_VALUE"
+			declare -g "${slave_value_ref}"="${slave_value}"
+		#else
+		#	printf "unable to match alternative slave Name: %s - skipping\n" "${1}" >&2
+		fi
+		# Leave status unchanged
+	else
+		_ALT_PARSE_QUERY_STATE="MAYBE_ALT_START"
+		_alt_parse_query_state_"${_ALT_PARSE_QUERY_STATE}" "${1}"
+	fi
+}
+
+# ##############################################################################
+# END alternatives_parse_query.bash
+# ##############################################################################
+
 # Only process main logic if not being sourced (ie tested)
 #
 (return 0 2>/dev/null) || main "$@"
-
-export PATH="${PATH}"
