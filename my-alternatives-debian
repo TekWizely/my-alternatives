@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
+#######################################################################
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2021 TekWizely & co-authors
+#
+# Use of this source code is governed by the MIT license.
+# See the accompanying LICENSE file, if present, or visit:
+#   https://opensource.org/licenses/MIT
+#######################################################################
+VERSION="v0.7.0-debian"
+
 set -Eeuo pipefail
 umask 077 # We use tmp files. Try to protect the user
-
-VERSION="v0.7.0-debian"
 
 function usage() {
 	# Need to escape $ and \

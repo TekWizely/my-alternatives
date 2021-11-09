@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
+#######################################################################
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2021 TekWizely & co-authors
+#
+# Use of this source code is governed by the MIT license.
+# See the accompanying LICENSE file, if present, or visit:
+#   https://opensource.org/licenses/MIT
+#######################################################################
+VERSION="v0.7.0-redhat"
+
 set -Eeuo pipefail
 umask 077 # We use tmp files. Try to protect the user
-
-VERSION="v0.7.0-redhat"
 
 function usage() {
 	# Need to escape $ and \
@@ -671,6 +679,7 @@ function do_import() {
 	#
 	local ALT_GROUP_NAME="${name}"
 	# Fill in CURRENT_VALUE
+	# NOTE: Assumes knowledge of the configuration's "alt" directory
 	#
 	local ALT_GROUP_CURRENT_VALUE
 	if [ -e "${alt_dir}/${name}" ] && [ -L "${alt_dir}/${name}" ]; then
@@ -1230,7 +1239,7 @@ function do_update_alternatives() {
 ##
 # alt_group_exists
 # Checks if a named alt group exists in the configured alt root
-# note: Assumes knowledge of the configuration's /admin/ folder
+# NOTE: Assumes knowledge of the configuration's "admin" directory
 # $1 = name
 #
 # returns 0 if exist 1 otherwise

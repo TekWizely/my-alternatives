@@ -1,7 +1,9 @@
 # My-Alternatives<br/>(hacking update-alternatives to make local changes)
 [![MIT license](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/tekwizely/pre-commit-golang/blob/master/LICENSE)
 
-My-Alternatives is a light-weight wrapper over _update-alternatives_, using it to make changes to user-level configurations.
+My-Alternatives is a light-weight wrapper over _update-alternatives_, offering user-level customizations.
+
+Versions are aviailable for both _Debian_ and _RedHat_.
 
 With my-alternatives, configuring custom alternatives is as easy as:
 
@@ -41,7 +43,6 @@ When the `HOME` configuration is the active configuration, my-alternatives impor
 
 When a `TEMP` configuration is active, my-alternatives first tries to import from your `HOME` configuration, falling back onto the system-level configuration if the group is not present.
 
-
 ### Manual Import
 
 If you want to import an alternative group into your active configuration without selecting an alternative, you can use the `import` command:
@@ -50,26 +51,32 @@ _import example_
 ```shell
 $ my-alternatives import <name>
 ```
+-----------
+## Commands
 
-### My-Alternatives Commands
+Below are tables of the available commands for each supported OS
 
-Below is the list of custom commands that my-alternatives implements:
+### Debian
+
+#### My-Alternatives-Debian Commands
+
+Below is the list of custom commands that _my-alternatives-debian_ implements:
 
 | Command            | Description 
 |--------------------|------------
 | `init`, `shellenv` | Prepare the current shell session for user-level alternatives.
 | `init-tmp`, `tmp`  | Configure the current shell session for temporary (short-lived) changes.
-| `select`, `config` | Select the active alternative for group <name>.  This is equivalent to `update-alternatives --config` with the adition of the auto-import logic.
-| `import`           | Import an alternative group <name> into the current configuration.
-| `add`              | Add an alternative to the group <name> within the current configuration.  This is equivalent to `update-alternatives --install` but has _slightly_ different syntax.  see `my-alternatives help add` for details.
 | `rm-tmp`           | Remove the temporary configuration from the current shell session, making the `HOME` configuration active.
+| `select`, `config` | Select the active alternative for a group.  This is equivalent to `update-alternatives --config` with the adition of the auto-import logic.
+| `import`           | Import an alternative group into the current configuration.
+| `add`              | Add an alternative to a group within the current configuration.  This is equivalent to `update-alternatives --install` but has _slightly_ different syntax.  see `my-alternatives help add` for details.
 | `version`          | Display my-alternatives version number.
 
 *NOTE:* See `my-alternatives help <command>` to learn about a specific command, including additional options.
 
-### Update-Alternatives Commands
+#### Debian Update-Alternatives Commands
 
-Below is the list of commands that are implemented as pass-through to the related update-alternatives command:
+Below is the list of commands that are implemented as pass-through to the related _Debian_ update-alternatives command:
 
 | My-Alternatives Command | Update-Alternatives Command
 |-------------------------|----------------------------
@@ -86,6 +93,49 @@ Below is the list of commands that are implemented as pass-through to the relate
 | `set-selections`        | `--set-selections`
 | `ua-help`               | `--help`
 | `ua-version`            | `--version` 
+
+My-Alternatives will set the `--admindir` and `--altdir` options to point to your active configuration.
+
+All additional command-line options are passed-through, unmodified.
+
+*NOTE:* See `update-alternatives --help` or `man update-alternatives` to learn more about the various commands and their options.
+
+### RedHat
+
+#### My-Alternatives-RedHat Commands
+
+Below is the list of custom commands that _my-alternatives-redhat_ implements:
+
+| Command            | Description
+|--------------------|------------
+| `init`, `shellenv` | Prepare the current shell session for user-level alternatives.
+| `init-tmp`, `tmp`  | Configure the current shell session for temporary (short-lived) changes.
+| `rm-tmp`           | Remove the temporary configuration from the current shell session, making the `HOME` configuration active.
+| `select`, `config` | Select the active alternative for a group.  This is equivalent to `update-alternatives --config` with the adition of the auto-import logic.
+| `import`           | Import an alternative group into the current configuration.
+| `add`              | Add an alternative to a group within the current configuration.  This is equivalent to `update-alternatives --install` but has _slightly_ different syntax.  see `my-alternatives help add` for details.
+| `add-child`        | Add an child to an existing alternative for a group within the current configuration.  This is equivalent to `update-alternatives --add-slave` but has _slightly_ different syntax.  see `my-alternatives help add-child` for details.
+| `version`          | Display my-alternatives version number.
+
+*NOTE:* See `my-alternatives help <command>` to learn about a specific command, including additional options.
+
+#### RedHat Update-Alternatives Commands
+
+Below is the list of commands that are implemented as pass-through to the related _RedHat_ update-alternatives command:
+
+| My-Alternatives Command | Update-Alternatives Command
+|-------------------------|----------------------------
+| `select`, `config`      | `--config`
+| `add-child`             | `--add-slave`
+| `rm-alt`                | `--remove`
+| `rm-group`, `rm-grp`    | `--remove-all`
+| `rm-child`              | `--remove-slave`
+| `display`               | `--display`
+| `list`                  | `--list`
+| `set`                   | `--set`
+| `auto`                  | `--auto`
+| `ua-help`               | `--help`
+| `ua-version`            | `--version`
 
 My-Alternatives will set the `--admindir` and `--altdir` options to point to your active configuration.
 
@@ -121,6 +171,19 @@ See the [Releases](https://github.com/TekWizely/my-alternatives/releases) page f
 git clone git://github.com/TekWizely/my-alternatives.git
 ```
 
+### Renaming the Scripts
+
+Depending on how you acquire the files, the scripts may be named by their OS flavor, i.e:
+* Debian : `my-alternatives-debian`
+* RedHat : `my-alternatives-redhat`
+
+Feel free to rename them as desired.  Personally, I rename the script *AND* set up a few convenient aliases:
+```shell
+$ cp my-alternatives-debian ~/bin/my-alternatives
+$ alias ma="my-alternatives"
+$ alias mua="my-alternatives ua"
+```
+
 ---------------
 ## Contributing
 
@@ -147,6 +210,8 @@ The `tekwizely/my-alternatives` project is released under the [MIT](https://open
 ----------------
 ##### Misc Notes
 
+As of `v0.7.0`, my-alternatives has been split (and renamed) into two scripts: `my-alternatives-debian` and `my-alternatives-redhat`. 
+
 As of `v0.6.0`, my-alternatives is a complete re-write.  As much as possible, commands are implemented as pass-through to _update-alternatives_, pointing to your active configuration.
 
 My-Alternatives does not require _root / sudo_ privileges to use, as it creates and maintains user-owned configuration directories.
@@ -155,7 +220,8 @@ My-Alternatives does not require _root / sudo_ privileges to use, as it creates 
 - Written in _Bash_
 - Requires the following system tools:
   - `update-alternatives`
-  - `mktemp`
+  - `readlink` (redhat version)
+  - `mktemp` (debian version)
   - `umask`
   - `dirname`
   - `basename`
@@ -171,3 +237,7 @@ My-Alternatives does not require _root / sudo_ privileges to use, as it creates 
     - `openSUSE Leap 15.3`
     - `SUSE update-alternatives version 1.19.0.4.`
     - `Bash 4.4.23(1)-release`
+  - CentOS
+    - `CentOS Linux release 8.4.2105`
+    - `alternatives version 1.13`
+    - `GNU bash, version 4.4.19(1)-release`
