@@ -3,7 +3,12 @@
 
 My-Alternatives is a light-weight wrapper over _update-alternatives_, offering user-level customizations.
 
-Versions are aviailable for both _Debian_ and _RedHat_.
+Supports _Debian_, _SUSE_<sup>*</sup>, and _RedHat_
+
+<sub>* for suse support, use the debian version</sub>
+
+-----------------------
+### Easy to Get Started
 
 With my-alternatives, configuring custom alternatives is as easy as:
 
@@ -19,7 +24,7 @@ _home configuration example_
 
 Your selections will be saved into your `HOME` configuration, and made active in any login shell that performs the initialization routine.
 
-*NOTE:* You can save the initialization routine in your `.profile`
+**NOTE:** You can save the initialization routine in your `.profile`
 
 ### Per-Shell Configuration
 
@@ -56,7 +61,11 @@ $ my-alternatives import <name>
 
 Below are tables of the available commands for each supported OS
 
-### Debian
+### Debian / SUSE
+
+**NOTE:** _SUSE_ uses a [rebranded](https://build.opensuse.org/package/view_file/openSUSE:Leap:15.2/update-alternatives/update-alternatives-suse.patch?expand=1) version of _Debian's_ udpate-alternatives.
+
+Until such time as the feature set of the two versions diverges, this project will **just** maintain the _Debian_ vesion.
 
 #### My-Alternatives-Debian Commands
 
@@ -72,7 +81,7 @@ Below is the list of custom commands that _my-alternatives-debian_ implements:
 | `add`              | Add an alternative to a group within the current configuration.  This is equivalent to `update-alternatives --install` but has _slightly_ different syntax.  see `my-alternatives help add` for details.
 | `version`          | Display my-alternatives version number.
 
-*NOTE:* See `my-alternatives help <command>` to learn about a specific command, including additional options.
+**NOTE:** See `my-alternatives help <command>` to learn about a specific command, including additional options.
 
 #### Debian Update-Alternatives Commands
 
@@ -98,9 +107,22 @@ My-Alternatives will set the `--admindir` and `--altdir` options to point to you
 
 All additional command-line options are passed-through, unmodified.
 
-*NOTE:* See `update-alternatives --help` or `man update-alternatives` to learn more about the various commands and their options.
+**NOTE:** See `update-alternatives --help` or `man update-alternatives` to learn more about the various commands and their options.
 
 ### RedHat
+
+#### hacking The system
+
+_RedHat_ has its own implementation of update-alternatives, which is slightly different from the _Debian_ version.
+
+One **major** difference is that it does NOT support the `--query` option, meaning that there's no means of determining an anternative's full configuraiton using _just_ the tool's public API.
+
+In order to support this version, we have to use knowledge of the system's _private_ API.  Namely:
+
+ * Defaulting the "admin" directory to `/var/lib/alternatives`
+ * Assuming the name and format of files in the admin directory
+ * Defaulting the "alt" directory to `/etc/alternatives`
+ * Assuming the name and nature of files in the alt directory
 
 #### My-Alternatives-RedHat Commands
 
@@ -117,7 +139,7 @@ Below is the list of custom commands that _my-alternatives-redhat_ implements:
 | `add-child`        | Add an child to an existing alternative for a group within the current configuration.  This is equivalent to `update-alternatives --add-slave` but has _slightly_ different syntax.  see `my-alternatives help add-child` for details.
 | `version`          | Display my-alternatives version number.
 
-*NOTE:* See `my-alternatives help <command>` to learn about a specific command, including additional options.
+**NOTE:** See `my-alternatives help <command>` to learn about a specific command, including additional options.
 
 #### RedHat Update-Alternatives Commands
 
@@ -141,7 +163,7 @@ My-Alternatives will set the `--admindir` and `--altdir` options to point to you
 
 All additional command-line options are passed-through, unmodified.
 
-*NOTE:* See `update-alternatives --help` or `man update-alternatives` to learn more about the various commands and their options.
+**NOTE:** See `update-alternatives --help` or `man update-alternatives` to learn more about the various commands and their options.
 
 ### Invoking Update-Alternatives Directly
 
@@ -156,7 +178,7 @@ My-Alternatives will set the `--admindir` and `--altdir` options to point to you
 
 All additional command-line options are passed-through, unmodified.
 
-*NOTE:* See `update-alternatives --help` or `man update-alternatives` to learn more about available commands and their options.
+**NOTE:** See `update-alternatives --help` or `man update-alternatives` to learn more about available commands and their options.
 
 -------------
 ## Installing
@@ -174,10 +196,10 @@ git clone git://github.com/TekWizely/my-alternatives.git
 ### Renaming the Scripts
 
 Depending on how you acquire the files, the scripts may be named by their OS flavor, i.e:
-* Debian : `my-alternatives-debian`
-* RedHat : `my-alternatives-redhat`
+ * Debian : `my-alternatives-debian`
+ * RedHat : `my-alternatives-redhat`
 
-Feel free to rename them as desired.  Personally, I rename the script *AND* set up a few convenient aliases:
+Feel free to rename them as desired.  Personally, I rename the script **AND** set up a few convenient aliases:
 ```shell
 $ cp my-alternatives-debian ~/bin/my-alternatives
 $ alias ma="my-alternatives"
